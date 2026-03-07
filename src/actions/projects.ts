@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { projects, pages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   startCrawl as firecrawlStart,
   getCrawlStatus as firecrawlStatus,
@@ -309,4 +309,153 @@ export async function retakeScreenshot(pageId: string) {
     .where(eq(pages.id, pageId));
 
   return { screenshotUrl: publicUrl };
+}
+
+export async function togglePageExclusion(pageId: string, excluded: boolean) {
+  await db
+    .update(pages)
+    .set({ excluded })
+    .where(eq(pages.id, pageId));
+}
+
+export async function bulkToggleExclusion(
+  pageIds: string[],
+  excluded: boolean
+) {
+  if (pageIds.length === 0) return;
+  await db
+    .update(pages)
+    .set({ excluded })
+    .where(inArray(pages.id, pageIds));
+}
+
+export async function startScraping(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  // Only scrape non-excluded pages
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+
+  const total = projectPages.length;
+  let completed = 0;
+
+  // Count already scraped
+  for (const page of projectPages) {
+    if (page.screenshotUrl && page.rawMarkdown) completed++;
+  }
+
+  await db
+    .update(projects)
+    .set({
+      status: "scraping",
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        scrapeProgress: { completed, total },
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl && page.rawMarkdown) continue;
+
+    // Scrape content if missing
+    if (!page.rawMarkdown) {
+      try {
+        const { scrapeUrl } = await import("@/services/firecrawl");
+        const result = await scrapeUrl(page.url);
+        if (result) {
+          await db
+            .update(pages)
+            .set({
+              rawMarkdown: result.markdown || null,
+              rawHtml: result.html || null,
+              wordCount: result.markdown
+                ? result.markdown.split(/\s+/).filter(Boolean).length
+                : page.wordCount,
+            })
+            .where(eq(pages.id, page.id));
+        }
+      } catch (err) {
+        console.error(`Scrape failed for ${page.url}:`, err);
+      }
+    }
+
+    // Capture screenshot if missing
+    if (!page.screenshotUrl) {
+      const screenshot = await captureScreenshot(page.url);
+      if (screenshot) {
+        const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+        if (publicUrl) {
+          await db
+            .update(pages)
+            .set({ screenshotUrl: publicUrl })
+            .where(eq(pages.id, page.id));
+        }
+      }
+    }
+
+    completed++;
+
+    // Update progress
+    const [current] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    await db
+      .update(projects)
+      .set({
+        settings: {
+          ...(current.settings as Record<string, unknown>),
+          scrapeProgress: { completed, total },
+        },
+      })
+      .where(eq(projects.id, projectId));
+  }
+
+  // Done
+  const [final] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  await db
+    .update(projects)
+    .set({
+      status: "reviewing",
+      settings: {
+        ...(final.settings as Record<string, unknown>),
+        scrapeProgress: undefined,
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  return { completed, total };
+}
+
+export async function getScrapeProgress(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as {
+    scrapeProgress?: { completed: number; total: number };
+  } | null;
+
+  return {
+    status: project.status,
+    progress: settings?.scrapeProgress ?? null,
+  };
 }

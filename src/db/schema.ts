@@ -26,6 +26,7 @@ export const projects = pgTable("projects", {
     analysisError?: string;
     analysisProgress?: { completed: number; total: number };
     screenshotProgress?: { completed: number; total: number };
+    scrapeProgress?: { completed: number; total: number };
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -66,6 +67,7 @@ export const pages = pgTable("pages", {
   templateId: uuid("template_id").references(() => templates.id),
   contentTier: varchar("content_tier", { length: 50 }),
   navigationDepth: integer("navigation_depth"),
+  excluded: boolean("excluded").default(false),
   isOrphan: boolean("is_orphan").default(false),
   isDuplicate: boolean("is_duplicate").default(false),
   contentHash: text("content_hash"),
