@@ -108,7 +108,7 @@ export function ScrapeRunner({
         </div>
       )}
 
-      {!isScraping && canScrape && (
+      {!isScraping && canScrape && !isDone && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
           <p className="text-sm text-blue-900">
             <strong>{selectedCount} pages</strong> selected for scraping.
