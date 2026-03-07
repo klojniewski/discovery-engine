@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, CheckCircle2, Image, FileText, Download } from "lucide-react";
 import { retakeScreenshot } from "@/actions/projects";
@@ -16,7 +17,7 @@ interface ScrapedPage {
   rawMarkdown: string | null;
 }
 
-export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
+export function ScrapeResultsTable({ projectId, pages }: { projectId: string; pages: ScrapedPage[] }) {
   const [retaking, setRetaking] = useState<string | null>(null);
   const [screenshots, setScreenshots] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
@@ -145,7 +146,12 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
                     </a>
                   </td>
                   <td className="p-3 max-w-xs truncate">
-                    {page.title || "\u2014"}
+                    <Link
+                      href={`/projects/${projectId}/pages/${page.id}`}
+                      className="hover:text-primary hover:underline underline-offset-4"
+                    >
+                      {page.title || new URL(page.url).pathname}
+                    </Link>
                   </td>
                   <td className="p-3 text-right tabular-nums">
                     {page.wordCount ?? "\u2014"}
