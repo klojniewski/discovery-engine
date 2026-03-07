@@ -10,6 +10,7 @@ import { ExecutiveSummary } from "@/components/report/executive-summary";
 import { TemplateInventory } from "@/components/report/template-inventory";
 import { SiteArchitecture } from "@/components/report/site-architecture";
 import { ContentAudit } from "@/components/report/content-audit";
+import { ComponentInventoryReport } from "@/components/report/component-inventory-report";
 import { SectionNotes } from "@/components/report/section-notes";
 
 export default async function ReportPage({
@@ -116,6 +117,26 @@ export default async function ReportPage({
               );
             })()}
 
+            {/* Component Inventory */}
+            {(() => {
+              const section = getSection("component_inventory");
+              if (!section) return null;
+              const content = section.content as {
+                components: ComponentData[];
+              };
+              return (
+                <div>
+                  <ComponentInventoryReport
+                    components={content.components}
+                  />
+                  <SectionNotes
+                    sectionId={section.id}
+                    initialNotes={section.notes}
+                  />
+                </div>
+              );
+            })()}
+
             {/* Site Architecture */}
             {(() => {
               const section = getSection("site_architecture");
@@ -192,6 +213,15 @@ type SiteArchitectureData = {
     wordCount: number | null;
   } | null;
   children: SiteArchitectureData[];
+};
+
+type ComponentData = {
+  type: string;
+  count: number;
+  complexity: string | null;
+  position: string | null;
+  styleDescription: string | null;
+  screenshotUrl: string | null;
 };
 
 type ContentAuditData = {

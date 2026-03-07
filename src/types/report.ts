@@ -18,6 +18,7 @@ export interface ReportData {
   templates: TemplateSection[];
   contentAudit: ContentAuditSection;
   siteArchitecture: SiteArchitectureNode[];
+  componentInventory: ComponentSection[];
 }
 
 export interface TemplateSection {
@@ -66,8 +67,18 @@ export interface SiteArchitectureNode {
   children: SiteArchitectureNode[];
 }
 
+export interface ComponentSection {
+  type: string;
+  count: number;
+  complexity: string | null;
+  position: string | null;
+  styleDescription: string | null;
+  screenshotUrl: string | null;
+}
+
 export type ReportSectionType =
   | "executive_summary"
   | "template_inventory"
   | "site_architecture"
-  | "content_audit";
+  | "content_audit"
+  | "component_inventory";

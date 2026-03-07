@@ -49,6 +49,13 @@ export async function generateReport(projectId: string) {
       },
       order: 3,
     },
+    {
+      type: "component_inventory",
+      content: {
+        components: reportData.componentInventory,
+      },
+      order: 4,
+    },
   ];
 
   for (const section of sections) {
