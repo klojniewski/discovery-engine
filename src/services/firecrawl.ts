@@ -17,7 +17,7 @@ export async function startCrawl({ url, limit = 500, excludePaths }: CrawlOption
     limit,
     excludePaths: excludePaths?.length ? excludePaths : undefined,
     scrapeOptions: {
-      formats: ["markdown"],
+      formats: ["markdown", "html"],
     },
   });
 
@@ -39,6 +39,7 @@ export interface CrawlStatusResult {
 
 export interface CrawlPage {
   markdown?: string;
+  html?: string;
   metadata?: {
     title?: string;
     description?: string;

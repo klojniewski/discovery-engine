@@ -141,11 +141,12 @@ async function storeCrawlResults(projectId: string, jobId: string) {
         h1: null as string | null,
         wordCount,
         contentHash,
+        rawMarkdown: markdown || null,
+        rawHtml: p.html || null,
         metadata: {
           language: p.metadata?.language,
           ogTitle: p.metadata?.ogTitle,
           ogDescription: p.metadata?.ogDescription,
-          markdown: markdown.slice(0, 10000),
         },
       };
     });

@@ -69,8 +69,7 @@ export async function runClassification(projectId: string) {
     title: p.title,
     metaDescription: p.metaDescription,
     wordCount: p.wordCount,
-    contentPreview:
-      (p.metadata as Record<string, unknown>)?.markdown as string | null ?? null,
+    contentPreview: p.rawMarkdown?.slice(0, 10000) ?? null,
   }));
 
   const results = await classifyPages(pageInputs);

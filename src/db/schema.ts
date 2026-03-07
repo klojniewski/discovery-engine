@@ -59,6 +59,8 @@ export const pages = pgTable("pages", {
   metaDescription: text("meta_description"),
   h1: text("h1"),
   wordCount: integer("word_count"),
+  rawMarkdown: text("raw_markdown"),
+  rawHtml: text("raw_html"),
   htmlSnapshotUrl: text("html_snapshot_url"),
   screenshotUrl: text("screenshot_url"),
   templateId: uuid("template_id").references(() => templates.id),
