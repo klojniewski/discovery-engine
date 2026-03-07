@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Camera, Loader2, CheckCircle2, Image, FileText, Code } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Camera, Loader2, CheckCircle2, Image, FileText, Code, Download } from "lucide-react";
 import { retakeScreenshot } from "@/actions/projects";
 
 interface ScrapedPage {
@@ -18,6 +19,7 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
   const [retaking, setRetaking] = useState<string | null>(null);
   const [screenshots, setScreenshots] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
+  const [isZipping, setIsZipping] = useState(false);
 
   function handleRetake(pageId: string) {
     setRetaking(pageId);
@@ -33,9 +35,81 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
     });
   }
 
+  async function downloadScreenshotsZip() {
+    setIsZipping(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      const pagesWithScreenshots = pages.filter(
+        (p) => screenshots[p.id] || p.screenshotUrl
+      );
+
+      await Promise.all(
+        pagesWithScreenshots.map(async (page) => {
+          const ssUrl = screenshots[page.id] || page.screenshotUrl;
+          if (!ssUrl) return;
+
+          try {
+            const res = await fetch(ssUrl);
+            if (!res.ok) return;
+            const blob = await res.blob();
+
+            // Create filename from URL path
+            const urlPath = new URL(page.url).pathname;
+            const filename =
+              (urlPath === "/" ? "homepage" : urlPath.replace(/\//g, "_").replace(/^_/, "")) + ".png";
+
+            zip.file(filename, blob);
+          } catch {
+            console.warn(`Failed to fetch screenshot for ${page.url}`);
+          }
+        })
+      );
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `screenshots-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("ZIP download failed:", err);
+    } finally {
+      setIsZipping(false);
+    }
+  }
+
+  const screenshotCount = pages.filter(
+    (p) => screenshots[p.id] || p.screenshotUrl
+  ).length;
+
   return (
     <div>
-      <h3 className="font-medium mb-3">Scraped Pages ({pages.length})</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-medium">Scraped Pages ({pages.length})</h3>
+        {screenshotCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadScreenshotsZip}
+            disabled={isZipping}
+          >
+            {isZipping ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Zipping...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-1" />
+                Download Screenshots ({screenshotCount})
+              </>
+            )}
+          </Button>
+        )}
+      </div>
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
