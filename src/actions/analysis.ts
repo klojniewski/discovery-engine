@@ -57,7 +57,7 @@ export async function runClassification(projectId: string) {
   const projectPages = await db
     .select()
     .from(pages)
-    .where(eq(pages.projectId, projectId));
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
 
   await updateStep(projectId, "classification", {
     completed: 0,
@@ -136,7 +136,7 @@ export async function runContentScoring(projectId: string) {
   const projectPages = await db
     .select()
     .from(pages)
-    .where(eq(pages.projectId, projectId));
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
 
   // Detect duplicates by content hash
   const hashCounts = new Map<string, number>();
