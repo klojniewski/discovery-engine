@@ -62,7 +62,7 @@ export default async function ReportPage({
       <ReportGenerator projectId={id} hasExistingReport={hasReport} />
 
       {hasReport && (
-        <div className="rounded-xl border overflow-hidden">
+        <div className="rounded-xl border">
           <ReportLayout
             clientName={project.clientName}
             websiteUrl={project.websiteUrl}
