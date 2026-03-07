@@ -15,7 +15,7 @@ const BUCKET = "screenshots";
 export async function captureScreenshot(url: string): Promise<string | null> {
   try {
     const response = await firecrawl.v1.scrapeUrl(url, {
-      formats: ["screenshot"],
+      formats: ["screenshot@fullPage"],
     });
 
     if (!response.success || !response.screenshot) {

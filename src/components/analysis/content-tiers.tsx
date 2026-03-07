@@ -1,4 +1,12 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface PageWithTier {
   id: string;
@@ -10,10 +18,30 @@ interface PageWithTier {
 }
 
 const TIER_CONFIG = {
-  must_migrate: { label: "Must Migrate", color: "bg-green-100 text-green-800" },
-  improve: { label: "Improve", color: "bg-blue-100 text-blue-800" },
-  consolidate: { label: "Consolidate", color: "bg-yellow-100 text-yellow-800" },
-  archive: { label: "Archive", color: "bg-red-100 text-red-800" },
+  must_migrate: {
+    label: "Must Migrate",
+    color: "bg-green-100 text-green-800",
+    tooltip:
+      "High-value pages with substantial content (300+ words), good metadata (title, description, H1), and prominent placement. These should be migrated as-is to the new platform.",
+  },
+  improve: {
+    label: "Improve",
+    color: "bg-blue-100 text-blue-800",
+    tooltip:
+      "Pages worth keeping but need improvement \u2014 may have thin content, missing metadata, or could benefit from better SEO. Migrate with enhancements.",
+  },
+  consolidate: {
+    label: "Consolidate",
+    color: "bg-yellow-100 text-yellow-800",
+    tooltip:
+      "Duplicate or near-duplicate pages that share the same content. Merge these into a single canonical page to avoid content dilution.",
+  },
+  archive: {
+    label: "Archive",
+    color: "bg-red-100 text-red-800",
+    tooltip:
+      "Low-value pages with very thin content, buried deep in navigation, or orphaned. Consider removing these or redirecting to relevant pages.",
+  },
 } as const;
 
 export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
@@ -49,13 +77,21 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-3 text-xs">
+        <div className="flex flex-wrap gap-4 text-xs">
           {Object.entries(TIER_CONFIG).map(([key, config]) => (
             <div key={key} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-sm ${config.color}`} />
               <span>
                 {config.label}: {tierCounts[key as keyof typeof tierCounts]}
               </span>
+              <Tooltip>
+                <TooltipTrigger className="cursor-help">
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  {config.tooltip}
+                </TooltipContent>
+              </Tooltip>
             </div>
           ))}
         </div>
@@ -75,7 +111,12 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
           <tbody>
             {pages
               .sort((a, b) => {
-                const order = { must_migrate: 0, improve: 1, consolidate: 2, archive: 3 };
+                const order = {
+                  must_migrate: 0,
+                  improve: 1,
+                  consolidate: 2,
+                  archive: 3,
+                };
                 return (
                   (order[a.contentTier as keyof typeof order] ?? 4) -
                   (order[b.contentTier as keyof typeof order] ?? 4)
@@ -100,10 +141,10 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                       </a>
                     </td>
                     <td className="p-3 max-w-xs truncate">
-                      {page.title || "—"}
+                      {page.title || "\u2014"}
                     </td>
                     <td className="p-3 text-right tabular-nums">
-                      {page.wordCount ?? "—"}
+                      {page.wordCount ?? "\u2014"}
                     </td>
                     <td className="p-3">
                       {config ? (
@@ -111,7 +152,9 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                           {config.label}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">
+                          {"\u2014"}
+                        </span>
                       )}
                     </td>
                   </tr>

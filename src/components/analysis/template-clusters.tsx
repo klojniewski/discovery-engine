@@ -1,4 +1,16 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Pencil, Check, X } from "lucide-react";
+import { renameTemplate, getTemplatePages } from "@/actions/analysis";
 
 interface Template {
   id: string;
@@ -11,7 +23,20 @@ interface Template {
   representativeScreenshot?: string | null;
 }
 
+interface TemplatePage {
+  id: string;
+  url: string;
+  title: string | null;
+}
+
 export function TemplateClusters({ templates }: { templates: Template[] }) {
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [modalPages, setModalPages] = useState<TemplatePage[] | null>(null);
+  const [modalTemplate, setModalTemplate] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
   if (templates.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -20,57 +45,167 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
     );
   }
 
+  function startEdit(template: Template) {
+    setEditing(template.id);
+    setEditValue(names[template.id] || template.displayName || template.name);
+  }
+
+  function saveEdit(templateId: string) {
+    const newName = editValue.trim();
+    if (!newName) return;
+    setNames((prev) => ({ ...prev, [templateId]: newName }));
+    setEditing(null);
+    startTransition(async () => {
+      await renameTemplate(templateId, newName);
+    });
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+  }
+
+  function showPages(template: Template) {
+    setModalTemplate(names[template.id] || template.displayName || template.name);
+    startTransition(async () => {
+      const pages = await getTemplatePages(template.id);
+      setModalPages(pages);
+    });
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {templates
-        .sort((a, b) => (b.pageCount ?? 0) - (a.pageCount ?? 0))
-        .map((template) => (
-          <div key={template.id} className="rounded-lg border p-4 space-y-3">
-            {template.representativeScreenshot && (
-              <div className="aspect-video rounded-md overflow-hidden bg-muted">
-                <img
-                  src={template.representativeScreenshot}
-                  alt={template.displayName ?? template.name}
-                  className="w-full h-full object-cover object-top"
-                />
-              </div>
-            )}
-            <div>
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm">
-                  {template.displayName ?? template.name}
-                </h4>
-                <Badge variant="outline" className="text-xs">
-                  {template.pageCount} pages
-                </Badge>
-              </div>
-              {template.description && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {template.description}
-                </p>
-              )}
-              <div className="flex gap-2 mt-2">
-                {template.confidence && (
-                  <Badge
-                    variant={
-                      template.confidence === "high"
-                        ? "default"
-                        : "secondary"
-                    }
-                    className="text-xs"
-                  >
-                    {template.confidence}
-                  </Badge>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {templates
+          .sort((a, b) => (b.pageCount ?? 0) - (a.pageCount ?? 0))
+          .map((template) => {
+            const displayName =
+              names[template.id] || template.displayName || template.name;
+
+            return (
+              <div
+                key={template.id}
+                className="rounded-lg border p-4 space-y-3"
+              >
+                {template.representativeScreenshot && (
+                  <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                    <img
+                      src={template.representativeScreenshot}
+                      alt={displayName}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
                 )}
-                {template.complexity && (
-                  <Badge variant="outline" className="text-xs">
-                    {template.complexity}
-                  </Badge>
-                )}
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    {editing === template.id ? (
+                      <div className="flex items-center gap-1 flex-1">
+                        <Input
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="h-7 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit(template.id);
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => saveEdit(template.id)}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="p-1 text-muted-foreground hover:bg-muted rounded"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-medium text-sm">{displayName}</h4>
+                        <button
+                          onClick={() => startEdit(template)}
+                          className="p-0.5 text-muted-foreground hover:text-foreground rounded"
+                          title="Rename template"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    <button onClick={() => showPages(template)}>
+                      <Badge
+                        variant="outline"
+                        className="text-xs cursor-pointer hover:bg-muted"
+                      >
+                        {template.pageCount} pages
+                      </Badge>
+                    </button>
+                  </div>
+                  {template.description && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {template.description}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-2">
+                    {template.confidence && (
+                      <Badge
+                        variant={
+                          template.confidence === "high"
+                            ? "default"
+                            : "secondary"
+                        }
+                        className="text-xs"
+                      >
+                        {template.confidence}
+                      </Badge>
+                    )}
+                    {template.complexity && (
+                      <Badge variant="outline" className="text-xs">
+                        {template.complexity}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
+            );
+          })}
+      </div>
+
+      {/* Pages modal */}
+      <Dialog
+        open={modalPages !== null}
+        onOpenChange={() => setModalPages(null)}
+      >
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{modalTemplate} Pages</DialogTitle>
+          </DialogHeader>
+          {modalPages && (
+            <div className="space-y-1">
+              {modalPages.map((page) => (
+                <a
+                  key={page.id}
+                  href={page.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-md p-2 hover:bg-muted text-sm"
+                >
+                  <div className="font-mono text-xs text-primary truncate">
+                    {page.url}
+                  </div>
+                  {page.title && (
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {page.title}
+                    </div>
+                  )}
+                </a>
+              ))}
             </div>
-          </div>
-        ))}
-    </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

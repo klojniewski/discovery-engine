@@ -40,7 +40,7 @@ export default async function ProjectOverviewPage({
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Created</p>
-          <p className="text-sm mt-1">{project.createdAt.toLocaleDateString()}</p>
+          <p className="text-sm mt-1">{project.createdAt.toLocaleDateString("en-GB")}</p>
         </div>
       </div>
 

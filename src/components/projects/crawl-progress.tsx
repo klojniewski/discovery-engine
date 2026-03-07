@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { startProjectCrawl, pollCrawlStatus } from "@/actions/projects";
-import { Loader2 } from "lucide-react";
+import {
+  startProjectCrawl,
+  pollCrawlStatus,
+  startScreenshots,
+  getScreenshotProgress,
+} from "@/actions/projects";
+import { Loader2, CheckCircle2, Circle, Camera } from "lucide-react";
 
 interface CrawlProgressProps {
   projectId: string;
@@ -15,27 +20,51 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
   const [status, setStatus] = useState(initialStatus);
   const [total, setTotal] = useState(0);
   const [completed, setCompleted] = useState(0);
+  const [screenshotProgress, setScreenshotProgress] = useState<{
+    completed: number;
+    total: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const isCrawling = status === "crawling";
+  const isScreenshotting = status === "screenshotting";
   const canStartCrawl = status === "created" || status === "crawl_failed";
+  const canStartScreenshots = status === "crawled";
+  const isDone = status === "reviewing" || status === "analyzing" || status === "analysis_failed";
 
+  // Poll crawl status
   useEffect(() => {
     if (!isCrawling) return;
 
     const interval = setInterval(() => {
-      pollCrawlStatus(projectId).then((result) => {
-        setStatus(result.status);
-        setTotal(result.total);
-        setCompleted(result.completed);
-      }).catch((err) => {
-        setError(String(err));
-      });
+      pollCrawlStatus(projectId)
+        .then((result) => {
+          setStatus(result.status);
+          setTotal(result.total);
+          setCompleted(result.completed);
+        })
+        .catch((err) => setError(String(err)));
     }, 5000);
 
     return () => clearInterval(interval);
   }, [isCrawling, projectId]);
+
+  // Poll screenshot progress
+  useEffect(() => {
+    if (!isScreenshotting) return;
+
+    const interval = setInterval(() => {
+      getScreenshotProgress(projectId)
+        .then((result) => {
+          setStatus(result.status);
+          setScreenshotProgress(result.progress);
+        })
+        .catch((err) => setError(String(err)));
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isScreenshotting, projectId]);
 
   function handleStartCrawl() {
     setError(null);
@@ -45,6 +74,21 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
         setStatus("crawling");
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+  }
+
+  function handleStartScreenshots() {
+    setError(null);
+    setStatus("screenshotting");
+    startTransition(async () => {
+      try {
+        await startScreenshots(projectId);
+        setStatus("reviewing");
+        setScreenshotProgress(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("crawled");
       }
     });
   }
@@ -79,17 +123,57 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
         </div>
       )}
 
-      {isCrawling && (
-        <div className="rounded-lg border p-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="font-medium">Crawling in progress...</span>
+      {/* Pipeline steps */}
+      {(isCrawling || isScreenshotting || canStartScreenshots || isDone) && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <h3 className="font-medium text-sm">Crawl Pipeline</h3>
+          <div className="space-y-2">
+            {/* Step 1: Crawling */}
+            <div className="flex items-center gap-2 text-sm">
+              {isCrawling ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : canStartScreenshots || isScreenshotting || isDone ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className={isCrawling || canStartScreenshots || isScreenshotting || isDone ? "text-foreground" : "text-muted-foreground"}>
+                Crawling Pages
+                {isCrawling && total > 0 && (
+                  <span className="ml-1.5 text-muted-foreground">
+                    ({completed}/{total})
+                  </span>
+                )}
+                {(canStartScreenshots || isScreenshotting || isDone) && pageCount > 0 && (
+                  <span className="ml-1.5 text-muted-foreground">
+                    ({pageCount} pages)
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {/* Step 2: Screenshots */}
+            <div className="flex items-center gap-2 text-sm">
+              {isScreenshotting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : isDone ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className={isScreenshotting || isDone ? "text-foreground" : "text-muted-foreground"}>
+                Capturing Screenshots
+                {isScreenshotting && screenshotProgress && (
+                  <span className="ml-1.5 text-muted-foreground">
+                    ({screenshotProgress.completed}/{screenshotProgress.total})
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
-          <div className="flex gap-6 text-sm text-muted-foreground">
-            <span>Pages found: <strong className="text-foreground">{total}</strong></span>
-            <span>Completed: <strong className="text-foreground">{completed}</strong></span>
-          </div>
-          {total > 0 && (
+
+          {/* Progress bar for crawling */}
+          {isCrawling && total > 0 && (
             <div className="w-full bg-muted rounded-full h-2">
               <div
                 className="bg-primary h-2 rounded-full transition-all"
@@ -97,15 +181,47 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
               />
             </div>
           )}
-          <p className="text-xs text-muted-foreground">Polling every 5 seconds...</p>
+
+          {/* Progress bar for screenshots */}
+          {isScreenshotting && screenshotProgress && screenshotProgress.total > 0 && (
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(100, (screenshotProgress.completed / screenshotProgress.total) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
-      {(status === "reviewing" || status === "analyzing") && (
+      {/* Start screenshots button */}
+      {canStartScreenshots && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 space-y-3">
+          <p className="font-medium text-blue-900">Crawl completed! {pageCount} pages found.</p>
+          <p className="text-sm text-blue-700">
+            Now capture screenshots for all crawled pages.
+          </p>
+          <Button onClick={handleStartScreenshots} disabled={isPending}>
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <Camera className="mr-2 h-4 w-4" />
+                Capture Screenshots
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {isDone && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-2">
-          <p className="font-medium text-green-900">Crawl completed!</p>
+          <p className="font-medium text-green-900">Crawl & screenshots complete!</p>
           <p className="text-sm text-green-700">
-            {pageCount} pages crawled. Results are stored and ready for review.
+            {pageCount} pages crawled with screenshots. Ready for analysis.
           </p>
         </div>
       )}

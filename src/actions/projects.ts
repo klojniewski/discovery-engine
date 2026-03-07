@@ -9,6 +9,7 @@ import {
   getCrawlStatus as firecrawlStatus,
   getAllCrawlResults,
 } from "@/services/firecrawl";
+import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
 import crypto from "crypto";
 
 export async function createProject(formData: FormData) {
@@ -113,7 +114,7 @@ export async function pollCrawlStatus(projectId: string) {
   }
 
   return {
-    status: crawlStatus.status === "completed" ? "analyzing" : crawlStatus.status === "failed" ? "crawl_failed" : "crawling",
+    status: crawlStatus.status === "completed" ? "crawled" : crawlStatus.status === "failed" ? "crawl_failed" : "crawling",
     total: crawlStatus.total,
     completed: crawlStatus.completed,
   };
@@ -160,7 +161,7 @@ async function storeCrawlResults(projectId: string, jobId: string) {
   await db
     .update(projects)
     .set({
-      status: "reviewing",
+      status: "crawled",
       crawlCompletedAt: new Date(),
     })
     .where(eq(projects.id, projectId));
@@ -181,4 +182,130 @@ export async function getProjectPages(projectId: string) {
     .select()
     .from(pages)
     .where(eq(pages.projectId, projectId));
+}
+
+export async function startScreenshots(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  const total = projectPages.length;
+  let captured = 0;
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl) captured++;
+  }
+
+  await db
+    .update(projects)
+    .set({
+      status: "screenshotting",
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        screenshotProgress: { completed: captured, total },
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl) continue;
+
+    const screenshot = await captureScreenshot(page.url);
+    if (screenshot) {
+      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+      if (publicUrl) {
+        await db
+          .update(pages)
+          .set({ screenshotUrl: publicUrl })
+          .where(eq(pages.id, page.id));
+      }
+    }
+    captured++;
+
+    // Update progress
+    const [current] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    await db
+      .update(projects)
+      .set({
+        settings: {
+          ...(current.settings as Record<string, unknown>),
+          screenshotProgress: { completed: captured, total },
+        },
+      })
+      .where(eq(projects.id, projectId));
+  }
+
+  // Done
+  const [final] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  await db
+    .update(projects)
+    .set({
+      status: "reviewing",
+      settings: {
+        ...(final.settings as Record<string, unknown>),
+        screenshotProgress: undefined,
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  return { captured, total };
+}
+
+export async function getScreenshotProgress(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as {
+    screenshotProgress?: { completed: number; total: number };
+  } | null;
+
+  return {
+    status: project.status,
+    progress: settings?.screenshotProgress ?? null,
+  };
+}
+
+export async function retakeScreenshot(pageId: string) {
+  const [page] = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.id, pageId))
+    .limit(1);
+
+  if (!page) throw new Error("Page not found");
+
+  const screenshot = await captureScreenshot(page.url);
+  if (!screenshot) throw new Error("Failed to capture screenshot");
+
+  const publicUrl = await uploadScreenshot(page.projectId, page.id, screenshot);
+  if (!publicUrl) throw new Error("Failed to upload screenshot");
+
+  await db
+    .update(pages)
+    .set({ screenshotUrl: publicUrl })
+    .where(eq(pages.id, pageId));
+
+  return { screenshotUrl: publicUrl };
 }

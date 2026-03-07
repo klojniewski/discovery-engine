@@ -2,11 +2,10 @@
 
 import { db } from "@/db";
 import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
 import { assignContentTier } from "@/services/scoring";
 import { detectComponents } from "@/services/components";
-import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
 
 export async function getAnalysisStatus(projectId: string) {
   const [project] = await db
@@ -52,42 +51,6 @@ async function updateStep(
       },
     })
     .where(eq(projects.id, projectId));
-}
-
-export async function runScreenshots(projectId: string) {
-  const projectPages = await db
-    .select()
-    .from(pages)
-    .where(eq(pages.projectId, projectId));
-
-  const total = projectPages.length;
-  let captured = 0;
-
-  // Count already-captured screenshots
-  for (const page of projectPages) {
-    if (page.screenshotUrl) captured++;
-  }
-
-  await updateStep(projectId, "screenshots", { completed: captured, total });
-
-  for (const page of projectPages) {
-    if (page.screenshotUrl) continue; // already has screenshot
-
-    const screenshot = await captureScreenshot(page.url);
-    if (screenshot) {
-      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
-      if (publicUrl) {
-        await db
-          .update(pages)
-          .set({ screenshotUrl: publicUrl })
-          .where(eq(pages.id, page.id));
-      }
-    }
-    captured++;
-    await updateStep(projectId, "screenshots", { completed: captured, total });
-  }
-
-  return { captured, total: projectPages.length };
 }
 
 export async function runClassification(projectId: string) {
@@ -278,16 +241,13 @@ export async function runFullAnalysis(projectId: string) {
       .set({ status: "analyzing" })
       .where(eq(projects.id, projectId));
 
-    // Step 1: Screenshots
-    const screenshotResult = await runScreenshots(projectId);
-
-    // Step 2: Classification
+    // Step 1: Classification
     const classificationResult = await runClassification(projectId);
 
-    // Step 3: Content scoring
+    // Step 2: Content scoring
     const scoringResult = await runContentScoring(projectId);
 
-    // Step 4: Component detection
+    // Step 3: Component detection
     const componentResult = await runComponentDetection(projectId);
 
     // Done
@@ -312,7 +272,6 @@ export async function runFullAnalysis(projectId: string) {
       .where(eq(projects.id, projectId));
 
     return {
-      screenshots: screenshotResult,
       classification: classificationResult,
       scoring: scoringResult,
       components: componentResult,
@@ -337,4 +296,22 @@ export async function runFullAnalysis(projectId: string) {
 
     throw err;
   }
+}
+
+export async function renameTemplate(templateId: string, displayName: string) {
+  await db
+    .update(templates)
+    .set({ displayName })
+    .where(eq(templates.id, templateId));
+}
+
+export async function getTemplatePages(templateId: string) {
+  return db
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+    })
+    .from(pages)
+    .where(eq(pages.templateId, templateId));
 }
