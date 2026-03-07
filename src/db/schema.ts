@@ -22,6 +22,9 @@ export const projects = pgTable("projects", {
     notes?: string;
     firecrawlJobId?: string;
     excludePaths?: string[];
+    analysisStep?: string;
+    analysisError?: string;
+    analysisProgress?: { completed: number; total: number };
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),

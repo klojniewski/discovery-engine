@@ -1,0 +1,340 @@
+"use server";
+
+import { db } from "@/db";
+import { projects, pages, templates, components, componentPages } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { classifyPages } from "@/services/classification";
+import { assignContentTier } from "@/services/scoring";
+import { detectComponents } from "@/services/components";
+import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
+
+export async function getAnalysisStatus(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as {
+    analysisStep?: string;
+    analysisError?: string;
+    analysisProgress?: { completed: number; total: number };
+  } | null;
+
+  return {
+    status: project.status,
+    step: settings?.analysisStep ?? null,
+    error: settings?.analysisError ?? null,
+    progress: settings?.analysisProgress ?? null,
+  };
+}
+
+async function updateStep(
+  projectId: string,
+  step: string,
+  progress?: { completed: number; total: number }
+) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  await db
+    .update(projects)
+    .set({
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        analysisStep: step,
+        analysisProgress: progress ?? undefined,
+      },
+    })
+    .where(eq(projects.id, projectId));
+}
+
+export async function runScreenshots(projectId: string) {
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  const total = projectPages.length;
+  let captured = 0;
+
+  // Count already-captured screenshots
+  for (const page of projectPages) {
+    if (page.screenshotUrl) captured++;
+  }
+
+  await updateStep(projectId, "screenshots", { completed: captured, total });
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl) continue; // already has screenshot
+
+    const screenshot = await captureScreenshot(page.url);
+    if (screenshot) {
+      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+      if (publicUrl) {
+        await db
+          .update(pages)
+          .set({ screenshotUrl: publicUrl })
+          .where(eq(pages.id, page.id));
+      }
+    }
+    captured++;
+    await updateStep(projectId, "screenshots", { completed: captured, total });
+  }
+
+  return { captured, total: projectPages.length };
+}
+
+export async function runClassification(projectId: string) {
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  await updateStep(projectId, "classification", {
+    completed: 0,
+    total: projectPages.length,
+  });
+
+  const pageInputs = projectPages.map((p) => ({
+    url: p.url,
+    title: p.title,
+    metaDescription: p.metaDescription,
+    wordCount: p.wordCount,
+    contentPreview:
+      (p.metadata as Record<string, unknown>)?.markdown as string | null ?? null,
+  }));
+
+  const results = await classifyPages(pageInputs);
+
+  await updateStep(projectId, "classification", {
+    completed: projectPages.length,
+    total: projectPages.length,
+  });
+
+  // Create template records grouped by type
+  const templateGroups = new Map<string, typeof results>();
+  for (const r of results) {
+    const group = templateGroups.get(r.templateType) ?? [];
+    group.push(r);
+    templateGroups.set(r.templateType, group);
+  }
+
+  // Clear existing templates for this project
+  await db.delete(templates).where(eq(templates.projectId, projectId));
+
+  for (const [type, group] of templateGroups) {
+    // Find the highest-confidence page as representative
+    const representative = group.sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return order[a.confidence] - order[b.confidence];
+    })[0];
+
+    const repPage = projectPages.find((p) => p.url === representative.url);
+
+    const [template] = await db
+      .insert(templates)
+      .values({
+        projectId,
+        name: type,
+        displayName: type
+          .split("_")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" "),
+        confidence: representative.confidence,
+        pageCount: group.length,
+        representativePageId: repPage?.id,
+        description: representative.reasoning,
+      })
+      .returning();
+
+    // Update pages with template ID
+    for (const r of group) {
+      const page = projectPages.find((p) => p.url === r.url);
+      if (page) {
+        await db
+          .update(pages)
+          .set({ templateId: template.id })
+          .where(eq(pages.id, page.id));
+      }
+    }
+  }
+
+  return { classified: results.length, templates: templateGroups.size };
+}
+
+export async function runContentScoring(projectId: string) {
+  await updateStep(projectId, "scoring");
+
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  // Detect duplicates by content hash
+  const hashCounts = new Map<string, number>();
+  for (const p of projectPages) {
+    if (p.contentHash) {
+      hashCounts.set(p.contentHash, (hashCounts.get(p.contentHash) ?? 0) + 1);
+    }
+  }
+
+  let scored = 0;
+  for (const page of projectPages) {
+    const isDuplicate = page.contentHash
+      ? (hashCounts.get(page.contentHash) ?? 0) > 1
+      : false;
+
+    const tier = assignContentTier({
+      wordCount: page.wordCount ?? 0,
+      navigationDepth: page.navigationDepth ?? 1,
+      hasTitle: !!page.title,
+      titleLength: page.title?.length ?? 0,
+      hasMetaDescription: !!page.metaDescription,
+      metaDescriptionLength: page.metaDescription?.length ?? 0,
+      hasH1: !!page.h1,
+      isDuplicate,
+      isOrphan: page.isOrphan ?? false,
+    });
+
+    await db
+      .update(pages)
+      .set({
+        contentTier: tier,
+        isDuplicate,
+      })
+      .where(eq(pages.id, page.id));
+
+    scored++;
+  }
+
+  return { scored };
+}
+
+export async function runComponentDetection(projectId: string) {
+  await updateStep(projectId, "components");
+
+  // Get templates with representative pages that have screenshots
+  const projectTemplates = await db
+    .select()
+    .from(templates)
+    .where(eq(templates.projectId, projectId));
+
+  // Clear existing components
+  await db.delete(components).where(eq(components.projectId, projectId));
+
+  let detected = 0;
+
+  for (const template of projectTemplates) {
+    if (!template.representativePageId) continue;
+
+    const [repPage] = await db
+      .select()
+      .from(pages)
+      .where(eq(pages.id, template.representativePageId))
+      .limit(1);
+
+    if (!repPage?.screenshotUrl) continue;
+
+    const detectedComponents = await detectComponents(
+      repPage.screenshotUrl,
+      repPage.url
+    );
+
+    for (const comp of detectedComponents) {
+      const [component] = await db
+        .insert(components)
+        .values({
+          projectId,
+          type: comp.type,
+          styleDescription: comp.styleDescription,
+          position: comp.position,
+          complexity: comp.complexity,
+          frequency: 1,
+        })
+        .returning();
+
+      await db.insert(componentPages).values({
+        componentId: component.id,
+        pageId: repPage.id,
+      });
+
+      detected++;
+    }
+  }
+
+  return { detected };
+}
+
+export async function runFullAnalysis(projectId: string) {
+  try {
+    await db
+      .update(projects)
+      .set({ status: "analyzing" })
+      .where(eq(projects.id, projectId));
+
+    // Step 1: Screenshots
+    const screenshotResult = await runScreenshots(projectId);
+
+    // Step 2: Classification
+    const classificationResult = await runClassification(projectId);
+
+    // Step 3: Content scoring
+    const scoringResult = await runContentScoring(projectId);
+
+    // Step 4: Component detection
+    const componentResult = await runComponentDetection(projectId);
+
+    // Done
+    await db
+      .update(projects)
+      .set({
+        status: "reviewing",
+        analysisCompletedAt: new Date(),
+        settings: {
+          ...(
+            (
+              await db
+                .select()
+                .from(projects)
+                .where(eq(projects.id, projectId))
+                .limit(1)
+            )[0].settings as Record<string, unknown>
+          ),
+          analysisStep: "completed",
+        },
+      })
+      .where(eq(projects.id, projectId));
+
+    return {
+      screenshots: screenshotResult,
+      classification: classificationResult,
+      scoring: scoringResult,
+      components: componentResult,
+    };
+  } catch (err) {
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    await db
+      .update(projects)
+      .set({
+        status: "analysis_failed",
+        settings: {
+          ...(project.settings as Record<string, unknown>),
+          analysisError: err instanceof Error ? err.message : String(err),
+        },
+      })
+      .where(eq(projects.id, projectId));
+
+    throw err;
+  }
+}
