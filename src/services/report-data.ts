@@ -1,11 +1,12 @@
 import { db } from "@/db";
-import { projects, pages, templates, components } from "@/db/schema";
+import { projects, pages, templates, components, componentPages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type {
   ReportData,
   TemplateSection,
   ContentAuditSection,
   SiteArchitectureNode,
+  ComponentSection,
 } from "@/types/report";
 
 export async function assembleReportData(
@@ -105,6 +106,55 @@ export async function assembleReportData(
   // Site architecture tree
   const siteArchitecture = buildSiteTree(projectPages, projectTemplates);
 
+  // Component inventory — grouped by type with screenshot URLs
+  const cpLinks = await db
+    .select({
+      componentId: componentPages.componentId,
+      screenshotUrl: pages.screenshotUrl,
+    })
+    .from(componentPages)
+    .innerJoin(pages, eq(componentPages.pageId, pages.id));
+
+  const compScreenshots = new Map<string, string>();
+  for (const link of cpLinks) {
+    if (link.screenshotUrl && !compScreenshots.has(link.componentId)) {
+      compScreenshots.set(link.componentId, link.screenshotUrl);
+    }
+  }
+
+  const compGroups = new Map<string, typeof projectComponents>();
+  for (const comp of projectComponents) {
+    const group = compGroups.get(comp.type) ?? [];
+    group.push(comp);
+    compGroups.set(comp.type, group);
+  }
+
+  const complexityOrder: Record<string, number> = { complex: 0, moderate: 1, simple: 2 };
+  const componentInventory: ComponentSection[] = [...compGroups.entries()]
+    .map(([type, group]) => {
+      const rep = [...group].sort((a, b) => {
+        const aHasImg = compScreenshots.has(a.id) ? 0 : 1;
+        const bHasImg = compScreenshots.has(b.id) ? 0 : 1;
+        if (aHasImg !== bHasImg) return aHasImg - bHasImg;
+        return (complexityOrder[a.complexity ?? "moderate"] ?? 1) -
+          (complexityOrder[b.complexity ?? "moderate"] ?? 1);
+      })[0];
+      return {
+        type,
+        count: group.length,
+        complexity: rep.complexity,
+        position: rep.position,
+        styleDescription: rep.styleDescription,
+        screenshotUrl: compScreenshots.get(rep.id) ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const ca = complexityOrder[a.complexity ?? "moderate"] ?? 1;
+      const cb = complexityOrder[b.complexity ?? "moderate"] ?? 1;
+      if (ca !== cb) return ca - cb;
+      return b.count - a.count;
+    });
+
   return {
     project: {
       id: project.id,
@@ -118,6 +168,7 @@ export async function assembleReportData(
     templates: templateSections,
     contentAudit,
     siteArchitecture,
+    componentInventory,
   };
 }
 

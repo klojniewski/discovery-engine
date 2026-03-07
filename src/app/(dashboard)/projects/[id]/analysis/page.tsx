@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { projects, pages, templates, components } from "@/db/schema";
+import { projects, pages, templates, components, componentPages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { AnalysisRunner } from "@/components/analysis/analysis-runner";
 import { TemplateClusters } from "@/components/analysis/template-clusters";
@@ -41,6 +41,22 @@ export default async function AnalysisPage({
     .select()
     .from(components)
     .where(eq(components.projectId, id));
+
+  // Get screenshot URLs for components via component_pages join
+  const componentPageLinks = await db
+    .select({
+      componentId: componentPages.componentId,
+      screenshotUrl: pages.screenshotUrl,
+    })
+    .from(componentPages)
+    .innerJoin(pages, eq(componentPages.pageId, pages.id));
+
+  const componentScreenshots = new Map<string, string>();
+  for (const link of componentPageLinks) {
+    if (link.screenshotUrl && !componentScreenshots.has(link.componentId)) {
+      componentScreenshots.set(link.componentId, link.screenshotUrl);
+    }
+  }
 
   // Enrich templates with representative screenshots
   const enrichedTemplates = projectTemplates.map((t) => {
@@ -89,9 +105,14 @@ export default async function AnalysisPage({
           {projectComponents.length > 0 && (
             <section>
               <h3 className="text-lg font-semibold mb-3">
-                Components ({projectComponents.length})
+                Components
               </h3>
-              <ComponentInventory components={projectComponents} />
+              <ComponentInventory
+                components={projectComponents.map((c) => ({
+                  ...c,
+                  sourceScreenshotUrl: componentScreenshots.get(c.id) ?? null,
+                }))}
+              />
             </section>
           )}
         </>

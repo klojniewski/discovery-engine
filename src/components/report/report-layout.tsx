@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 const SECTIONS = [
   { id: "executive-summary", label: "Executive Summary" },
   { id: "template-inventory", label: "Templates" },
+  { id: "component-inventory", label: "Components" },
   { id: "site-architecture", label: "Site Architecture" },
   { id: "content-audit", label: "Content Audit" },
 ] as const;
