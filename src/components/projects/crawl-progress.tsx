@@ -8,9 +8,10 @@ import { Loader2 } from "lucide-react";
 interface CrawlProgressProps {
   projectId: string;
   initialStatus: string;
+  pageCount: number;
 }
 
-export function CrawlProgress({ projectId, initialStatus }: CrawlProgressProps) {
+export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProgressProps) {
   const [status, setStatus] = useState(initialStatus);
   const [total, setTotal] = useState(0);
   const [completed, setCompleted] = useState(0);
@@ -104,7 +105,7 @@ export function CrawlProgress({ projectId, initialStatus }: CrawlProgressProps) 
         <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-2">
           <p className="font-medium text-green-900">Crawl completed!</p>
           <p className="text-sm text-green-700">
-            {completed} pages crawled. Results are stored and ready for review.
+            {pageCount} pages crawled. Results are stored and ready for review.
           </p>
         </div>
       )}
