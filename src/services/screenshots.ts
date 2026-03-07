@@ -63,7 +63,7 @@ export async function uploadScreenshot(
     }
 
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    return `${data.publicUrl}?t=${Date.now()}`;
   } catch (err) {
     console.error(`Upload failed:`, err);
     return null;
