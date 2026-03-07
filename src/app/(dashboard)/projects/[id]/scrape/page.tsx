@@ -60,6 +60,7 @@ export default async function ScrapePage({
 
           {scrapedPages.length > 0 && (
             <ScrapeResultsTable
+              projectId={id}
               pages={scrapedPages.map((p) => ({
                 id: p.id,
                 url: p.url,
