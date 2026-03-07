@@ -107,7 +107,7 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
       {isCrawled && pageCount > 0 && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <p className="text-sm text-green-900">
-            <strong>{pageCount} pages</strong> discovered. Review the page tree below, deselect any pages you don't need, then go to the <strong>Scrape</strong> tab to capture content and screenshots.
+            <strong>{pageCount} pages</strong> discovered. Go to the <strong>Scrape</strong> tab to select pages and capture content and screenshots.
           </p>
         </div>
       )}

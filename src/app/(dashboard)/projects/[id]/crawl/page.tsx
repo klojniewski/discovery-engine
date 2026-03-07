@@ -20,23 +20,14 @@ export default async function CrawlPage({
       <div>
         <h2 className="text-xl font-bold">Crawl</h2>
         <p className="text-muted-foreground text-sm">
-          Discover pages on <strong>{project.websiteUrl}</strong> and select which ones to scrape.
+          Crawl <strong>{project.websiteUrl}</strong> to discover pages.
         </p>
       </div>
 
       <CrawlProgress projectId={id} initialStatus={project.status} pageCount={crawlPages.length} />
 
       {crawlPages.length > 0 && (
-        <CrawlResultsTable
-          pages={crawlPages.map((p) => ({
-            id: p.id,
-            url: p.url,
-            title: p.title,
-            wordCount: p.wordCount,
-            excluded: p.excluded,
-          }))}
-          projectName={project.clientName}
-        />
+        <CrawlResultsTable pages={crawlPages} projectName={project.clientName} />
       )}
     </div>
   );
