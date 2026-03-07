@@ -189,15 +189,15 @@ stateDiagram-v2
 ### Tasks
 
 #### 1.1 Repository Setup
-- [ ] Initialize git repository
-- [ ] Create `.gitignore` (node_modules, .env, .next, etc.)
-- [ ] Create `CLAUDE.md` with project conventions:
+- [x] Initialize git repository
+- [x] Create `.gitignore` (node_modules, .env, .next, etc.)
+- [x] Create `CLAUDE.md` with project conventions:
   - TypeScript strict mode
   - Server Components by default, Client Components only when needed
   - Drizzle ORM for all database queries
   - File naming: kebab-case for files, PascalCase for components
   - Use Server Actions for mutations, not API routes (except webhooks)
-- [ ] Create `.env.example` with required keys:
+- [x] Create `.env.example` with required keys:
   - `DATABASE_URL`
   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`
   - `FIRECRAWL_API_KEY`
@@ -212,12 +212,12 @@ CLAUDE.md
 ```
 
 #### 1.2 Next.js 16 App Setup
-- [ ] `npx create-next-app@latest` with App Router, TypeScript, Tailwind v4
-- [ ] Install and configure Shadcn/ui
-- [ ] Set up route groups:
+- [x] `npx create-next-app@latest` with App Router, TypeScript, Tailwind v4
+- [x] Install and configure Shadcn/ui
+- [x] Set up route groups:
   - `app/(dashboard)/` - internal authenticated routes
   - `app/(public)/` - public report viewer
-- [ ] Create dashboard layout shell with sidebar navigation:
+- [x] Create dashboard layout shell with sidebar navigation:
   - Projects list
   - New Project
   - Settings (placeholder)
@@ -247,10 +247,10 @@ app/
 
 #### 1.3 Database Setup
 - [ ] Set up Supabase project
-- [ ] Install Drizzle ORM + drizzle-kit
-- [ ] Create Drizzle schema (5 tables: projects, pages, templates, components, component_pages, report_sections)
+- [x] Install Drizzle ORM + drizzle-kit
+- [x] Create Drizzle schema (5 tables: projects, pages, templates, components, component_pages, report_sections)
 - [ ] Run initial migration
-- [ ] Create seed script with test data (1 project, 5 pages)
+- [x] Create seed script with test data (1 project, 5 pages)
 
 **Files:**
 ```
@@ -263,9 +263,9 @@ drizzle.config.ts            -- Drizzle Kit config
 ```
 
 #### 1.4 Authentication Setup
-- [ ] Configure Supabase Auth (email/password)
-- [ ] Protect `(dashboard)` route group with middleware
-- [ ] Create login page
+- [x] Configure Supabase Auth (email/password)
+- [x] Protect `(dashboard)` route group with middleware
+- [x] Create login page
 - [ ] Seed initial admin user
 
 **Files:**
@@ -281,10 +281,10 @@ middleware.ts                -- route protection
 ```
 
 #### 1.5 Test Setup
-- [ ] Install Vitest
-- [ ] Write first test: scoring function assigns correct tiers based on word count and depth
+- [x] Install Vitest
+- [x] Write first test: scoring function assigns correct tiers based on word count and depth
 - [ ] Set up test database connection
-- [ ] Add `npm run test` script
+- [x] Add `npm run test` script
 
 **Files:**
 ```
