@@ -2,7 +2,7 @@
 title: "feat: Replatform Discovery Engine - Build Plan"
 type: feat
 date: 2026-03-07
-status: draft
+status: in-progress
 target_site: https://pagepro.co
 version: 2.0
 ---
@@ -51,7 +51,7 @@ When working on each milestone:
 | LLM - Analysis/Vision | Claude Sonnet 4.6 | Best quality for component detection (vision) and report generation. |
 | Embeddings | None (cut) | Duplicate detection via text hashing. No OpenAI dependency, no pgvector. |
 | PDF Generation | Deferred | Web report is the primary deliverable. Cmd+P for PDF if needed. Add proper PDF generation later. |
-| Sitemap Viz | Simple tree view | Collapsible tree with Tailwind + recursive components. No React Flow dependency. |
+| Sitemap Viz | Page tree with checkboxes | Recursive tree grouped by URL path segments. Folder-level select/deselect. Used on Scrape tab. |
 | ORM | Drizzle ORM | Type-safe, lightweight, excellent PostgreSQL support. |
 | Testing | Vitest | Unit + integration tests from Phase 1. |
 | Payments | None (deferred) | Internal tool for now. Add Stripe when business model is validated. |
@@ -87,11 +87,14 @@ erDiagram
         text meta_description
         text h1
         integer word_count
+        text raw_markdown
+        text raw_html
         text html_snapshot_url
         text screenshot_url
         uuid template_id FK
         varchar content_tier
         integer navigation_depth
+        boolean excluded
         boolean is_orphan
         boolean is_duplicate
         text content_hash
@@ -167,17 +170,20 @@ stateDiagram-v2
     [*] --> created : Team creates project
     created --> crawling : Team triggers crawl
     crawling --> crawl_failed : Firecrawl error
-    crawling --> analyzing : Crawl completes
+    crawling --> crawled : Crawl completes
     crawl_failed --> crawling : Retry
+    crawled --> scraping : Team selects pages & starts scrape
+    scraping --> reviewing : Scrape completes
+    reviewing --> analyzing : Team triggers analysis
     analyzing --> analysis_failed : AI pipeline error
     analyzing --> reviewing : Analysis completes
     analysis_failed --> analyzing : Retry
     reviewing --> published : Team publishes report
-    reviewing --> analyzing : Re-run analysis
+    reviewing --> scraping : Re-scrape (fresh screenshots)
     published --> [*]
 ```
 
-**Simplified to 6 states** (removed payment states, archived state).
+**8 states** with separate crawl → scrape → analyse flow.
 
 ---
 
@@ -418,6 +424,23 @@ app/(dashboard)/projects/[id]/crawl/page.tsx  -- real crawl UI
 - [x] Clickable URLs in crawl results table (open in new tab)
 - [x] Projects list shows real data with status badges
 - [x] DB connection singleton pattern to avoid pool exhaustion
+- [x] European date format (DD/MM/YYYY)
+
+### Crawl/Scrape/Analyse workflow split (completed)
+- [x] Three-tab workflow: Crawl → Scrape → Analyse
+- [x] **Crawl tab:** URL discovery, simple table (URL, Title, Words), CSV export, content preview panel (rendered markdown in right slide-out)
+- [x] **Scrape tab:** Page tree grouped by URL path with checkboxes, folder-level select/deselect, "Scrape N Pages" button, progress polling, results table with content status icons (markdown/HTML) and screenshot links with retake, ZIP download of all screenshots
+- [x] **Analyse tab:** Only processes non-excluded (scraped) pages
+- [x] `excluded` boolean column on pages for selection state
+- [x] `raw_markdown` and `raw_html` text columns for full scraped content
+- [x] Firecrawl `scrapeUrl` for individual page scraping (markdown + HTML)
+- [x] Full-page screenshots via `screenshot@fullPage` format
+- [x] Cache-busting `?t=timestamp` on screenshot URLs for CDN freshness
+- [x] Re-scrape always re-captures screenshots, only fetches missing content
+- [x] Template inline rename with pencil icon
+- [x] Clickable template page count badges with modal showing page URLs
+- [x] Content tier tooltips explaining Must Migrate, Improve, Consolidate, Archive
+- [x] Install react-markdown + @tailwindcss/typography for content preview
 
 ### Agent-Browser Verification
 ```
@@ -826,15 +849,15 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 
 ## Milestone Summary
 
-| Phase | Milestone | Duration | Cumulative |
-|-------|-----------|----------|------------|
-| 1 | Project boots, dashboard shell, DB, auth, first test | 3-4 days | ~4 days |
-| 2 | Firecrawl crawls pagepro.co, pages stored, Inngest working | 3-4 days | ~8 days |
-| 3 | AI analysis: templates, scoring, components. Analysis dashboard. | 5-7 days | ~15 days |
-| 4 | 7-section report, preview, notes, publish, share link | 5-7 days | ~22 days |
-| 5 | Polish, tests, multi-site testing, deployed to production | 4-5 days | ~27 days |
+| Phase | Milestone | Status |
+|-------|-----------|--------|
+| 1 | Project boots, dashboard shell, DB, auth, first test | **Done** |
+| 2 | Firecrawl crawls pagepro.co, pages stored, 3-tab workflow (Crawl/Scrape/Analyse) | **Done** |
+| 3 | AI analysis: templates, scoring, components. Analysis dashboard. | **Done** |
+| 4 | 7-section report, preview, notes, publish, share link | Not started |
+| 5 | Polish, tests, multi-site testing, deployed to production | Not started |
 
-**Total: ~5-6 weeks (27 working days)**
+**Progress: ~60% complete** (Phases 1-3 done, Phases 4-5 remaining)
 
 ---
 
