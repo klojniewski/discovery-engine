@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, CheckCircle2, Image, FileText, Code, Download } from "lucide-react";
+import { Camera, Loader2, CheckCircle2, Image, FileText, Download } from "lucide-react";
 import { retakeScreenshot } from "@/actions/projects";
+import { ContentPreviewPanel } from "./content-preview-panel";
 
 interface ScrapedPage {
   id: string;
@@ -12,7 +13,7 @@ interface ScrapedPage {
   wordCount: number | null;
   screenshotUrl: string | null;
   hasMarkdown: boolean;
-  hasHtml: boolean;
+  rawMarkdown: string | null;
 }
 
 export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
@@ -20,6 +21,7 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
   const [screenshots, setScreenshots] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [isZipping, setIsZipping] = useState(false);
+  const [previewPage, setPreviewPage] = useState<ScrapedPage | null>(null);
 
   function handleRetake(pageId: string) {
     setRetaking(pageId);
@@ -128,7 +130,9 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
               return (
                 <tr
                   key={page.id}
-                  className="border-b last:border-0 hover:bg-muted/30"
+                  className={`border-b last:border-0 hover:bg-muted/30 ${
+                    previewPage?.id === page.id ? "bg-primary/5" : ""
+                  }`}
                 >
                   <td className="p-3 font-mono text-xs max-w-xs truncate">
                     <a
@@ -146,15 +150,28 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
                   <td className="p-3 text-right tabular-nums">
                     {page.wordCount ?? "\u2014"}
                   </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span title={page.hasMarkdown ? "Markdown captured" : "No markdown"}>
-                        <FileText className={`h-4 w-4 ${page.hasMarkdown ? "text-green-600" : "text-muted-foreground"}`} />
+                  <td className="p-3 text-center">
+                    {page.rawMarkdown ? (
+                      <button
+                        onClick={() =>
+                          setPreviewPage(
+                            previewPage?.id === page.id ? null : page
+                          )
+                        }
+                        className={`p-1 rounded hover:bg-muted ${
+                          previewPage?.id === page.id
+                            ? "text-primary bg-primary/10"
+                            : "text-green-600"
+                        }`}
+                        title="Preview content"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        <FileText className="h-4 w-4 inline" />
                       </span>
-                      <span title={page.hasHtml ? "HTML captured" : "No HTML"}>
-                        <Code className={`h-4 w-4 ${page.hasHtml ? "text-green-600" : "text-muted-foreground"}`} />
-                      </span>
-                    </div>
+                    )}
                   </td>
                   <td className="p-3 text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -190,6 +207,13 @@ export function ScrapeResultsTable({ pages }: { pages: ScrapedPage[] }) {
           </tbody>
         </table>
       </div>
+
+      {previewPage && (
+        <ContentPreviewPanel
+          page={previewPage}
+          onClose={() => setPreviewPage(null)}
+        />
+      )}
     </div>
   );
 }

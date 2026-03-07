@@ -854,10 +854,15 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 | 1 | Project boots, dashboard shell, DB, auth, first test | **Done** |
 | 2 | Firecrawl crawls pagepro.co, pages stored, 3-tab workflow (Crawl/Scrape/Analyse) | **Done** |
 | 3 | AI analysis: templates, scoring, components. Analysis dashboard. | **Done** |
-| 4 | 4-section report (data), preview, notes, publish, share link | **Done (data sections)** |
+| 4 | 4-section report (data), preview, notes, publish, share link | **Done** |
 | 5 | Polish, tests, multi-site testing, deployed to production | Not started |
 
-**Progress: ~75% complete** (Phases 1-4 done, AI report sections + Phase 5 remaining)
+**Progress: ~80% complete** (Phases 1-4 done, Phase 5 remaining)
+
+### Post-Phase 4 Improvements (Done)
+- Editable content tiers — manual tier override per page via dropdown in Analysis tab
+- Shared content preview panel — reusable component for Crawl and Scrape tabs with rendered markdown, backdrop overlay, toggle behavior
+- Cleaned up Scrape table — single content icon (FileText) instead of two (removed Code icon)
 
 ---
 

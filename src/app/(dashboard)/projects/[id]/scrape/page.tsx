@@ -67,7 +67,7 @@ export default async function ScrapePage({
                 wordCount: p.wordCount,
                 screenshotUrl: p.screenshotUrl,
                 hasMarkdown: !!p.rawMarkdown,
-                hasHtml: !!p.rawHtml,
+                rawMarkdown: p.rawMarkdown,
               }))}
             />
           )}

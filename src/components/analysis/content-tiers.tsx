@@ -1,12 +1,21 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Info, Loader2 } from "lucide-react";
+import { updatePageTier } from "@/actions/analysis";
 
 interface PageWithTier {
   id: string;
@@ -44,13 +53,39 @@ const TIER_CONFIG = {
   },
 } as const;
 
+type TierKey = "must_migrate" | "improve" | "consolidate" | "archive";
+
 export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
+  const [tiers, setTiers] = useState<Record<string, string | null>>(() => {
+    const map: Record<string, string | null> = {};
+    for (const p of pages) map[p.id] = p.contentTier;
+    return map;
+  });
+  const [saving, setSaving] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const getTier = (pageId: string) => tiers[pageId] ?? null;
+
+  const handleTierChange = (pageId: string, newTier: TierKey) => {
+    setSaving(pageId);
+    setTiers((prev) => ({ ...prev, [pageId]: newTier }));
+    startTransition(async () => {
+      try {
+        await updatePageTier(pageId, newTier);
+      } catch (err) {
+        console.error("Failed to update tier:", err);
+      } finally {
+        setSaving(null);
+      }
+    });
+  };
+
   const tierCounts = {
-    must_migrate: pages.filter((p) => p.contentTier === "must_migrate").length,
-    improve: pages.filter((p) => p.contentTier === "improve").length,
-    consolidate: pages.filter((p) => p.contentTier === "consolidate").length,
-    archive: pages.filter((p) => p.contentTier === "archive").length,
-    unscored: pages.filter((p) => !p.contentTier).length,
+    must_migrate: pages.filter((p) => getTier(p.id) === "must_migrate").length,
+    improve: pages.filter((p) => getTier(p.id) === "improve").length,
+    consolidate: pages.filter((p) => getTier(p.id) === "consolidate").length,
+    archive: pages.filter((p) => getTier(p.id) === "archive").length,
+    unscored: pages.filter((p) => !getTier(p.id)).length,
   };
 
   const total = pages.length || 1;
@@ -135,14 +170,18 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                   consolidate: 2,
                   archive: 3,
                 };
+                const tierA = getTier(a.id);
+                const tierB = getTier(b.id);
                 return (
-                  (order[a.contentTier as keyof typeof order] ?? 4) -
-                  (order[b.contentTier as keyof typeof order] ?? 4)
+                  (order[tierA as keyof typeof order] ?? 4) -
+                  (order[tierB as keyof typeof order] ?? 4)
                 );
               })
               .map((page) => {
+                const currentTier = getTier(page.id);
                 const config =
-                  TIER_CONFIG[page.contentTier as keyof typeof TIER_CONFIG];
+                  TIER_CONFIG[currentTier as keyof typeof TIER_CONFIG];
+                const isSaving = saving === page.id;
                 return (
                   <tr
                     key={page.id}
@@ -165,15 +204,38 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                       {page.wordCount ?? "\u2014"}
                     </td>
                     <td className="p-3">
-                      {config ? (
-                        <Badge className={`${config.color} text-xs border-0`}>
-                          {config.label}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          {"\u2014"}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Select
+                          value={currentTier ?? ""}
+                          onValueChange={(val) =>
+                            handleTierChange(page.id, val as TierKey)
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-[140px] text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0">
+                            <SelectValue>
+                              {config ? (
+                                <Badge className={`${config.color} text-xs border-0`}>
+                                  {config.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">{"\u2014"}</span>
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(TIER_CONFIG).map(([key, cfg]) => (
+                              <SelectItem key={key} value={key} className="text-xs">
+                                <Badge className={`${cfg.color} text-xs border-0`}>
+                                  {cfg.label}
+                                </Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isSaving && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

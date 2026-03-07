@@ -312,6 +312,16 @@ export async function renameTemplate(templateId: string, displayName: string) {
     .where(eq(templates.id, templateId));
 }
 
+export async function updatePageTier(
+  pageId: string,
+  tier: "must_migrate" | "improve" | "consolidate" | "archive"
+) {
+  await db
+    .update(pages)
+    .set({ contentTier: tier })
+    .where(eq(pages.id, pageId));
+}
+
 export async function getTemplatePages(templateId: string) {
   return db
     .select({
