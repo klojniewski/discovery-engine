@@ -5,7 +5,8 @@ import { projects, pages, templates, components, componentPages } from "@/db/sch
 import { eq, and } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
 import { scorePages } from "@/services/scoring";
-import { detectComponents } from "@/services/components";
+import { detectComponents, detectPageSections } from "@/services/components";
+import { revalidatePath } from "next/cache";
 
 export async function getAnalysisStatus(projectId: string) {
   const [project] = await db
@@ -320,6 +321,28 @@ export async function updatePageTier(
     .update(pages)
     .set({ contentTier: tier })
     .where(eq(pages.id, pageId));
+}
+
+export async function runPageDetection(pageId: string) {
+  const [page] = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.id, pageId))
+    .limit(1);
+
+  if (!page) throw new Error("Page not found");
+  if (!page.screenshotUrl) throw new Error("Page has no screenshot");
+
+  const sections = await detectPageSections(page.screenshotUrl, page.url);
+
+  await db
+    .update(pages)
+    .set({ detectedSections: sections })
+    .where(eq(pages.id, pageId));
+
+  revalidatePath(`/projects/${page.projectId}/pages/${pageId}`);
+
+  return sections;
 }
 
 export async function getTemplatePages(templateId: string) {

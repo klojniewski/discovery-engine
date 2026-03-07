@@ -71,6 +71,7 @@ export const pages = pgTable("pages", {
   isOrphan: boolean("is_orphan").default(false),
   isDuplicate: boolean("is_duplicate").default(false),
   contentHash: text("content_hash"),
+  detectedSections: jsonb("detected_sections").$type<import("@/types/page-sections").PageSection[] | null>(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
