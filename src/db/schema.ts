@@ -21,6 +21,7 @@ export const projects = pgTable("projects", {
     pageLimit?: number;
     notes?: string;
     firecrawlJobId?: string;
+    excludePaths?: string[];
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),

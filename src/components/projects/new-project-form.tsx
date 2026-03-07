@@ -4,10 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { createProject } from "@/actions/projects";
+import { useActionState } from "react";
+
+function formAction(_prevState: { error: string } | null, formData: FormData) {
+  return createProject(formData) as Promise<{ error: string } | null>;
+}
 
 export function NewProjectForm() {
+  const [state, action, isPending] = useActionState(formAction, null);
+
   return (
-    <form className="space-y-6">
+    <form action={action} className="space-y-6">
+      {state?.error && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {state.error}
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="url">Website URL</Label>
         <Input
@@ -60,6 +74,20 @@ export function NewProjectForm() {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="excludePaths">Exclude Paths</Label>
+        <Textarea
+          id="excludePaths"
+          name="excludePaths"
+          placeholder={"/blog/.*\n/news/.*\n/tag/.*"}
+          rows={3}
+        />
+        <p className="text-xs text-muted-foreground">
+          URL path patterns to exclude from crawling (one per line, regex supported).
+          E.g. <code className="text-xs">/blog/.*</code> excludes all blog pages.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
         <Textarea
           id="notes"
@@ -69,8 +97,8 @@ export function NewProjectForm() {
         />
       </div>
 
-      <Button type="submit" className="w-full">
-        Create Project
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Creating..." : "Create Project"}
       </Button>
     </form>
   );
