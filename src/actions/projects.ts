@@ -347,10 +347,8 @@ export async function startScraping(projectId: string) {
   const total = projectPages.length;
   let completed = 0;
 
-  // Count already scraped
-  for (const page of projectPages) {
-    if (page.screenshotUrl && page.rawMarkdown) completed++;
-  }
+  // Screenshots are always re-captured; only skip content scraping for pages that have it
+
 
   await db
     .update(projects)
@@ -364,8 +362,6 @@ export async function startScraping(projectId: string) {
     .where(eq(projects.id, projectId));
 
   for (const page of projectPages) {
-    if (page.screenshotUrl && page.rawMarkdown) continue;
-
     // Scrape content if missing
     if (!page.rawMarkdown) {
       try {
@@ -388,17 +384,15 @@ export async function startScraping(projectId: string) {
       }
     }
 
-    // Capture screenshot if missing
-    if (!page.screenshotUrl) {
-      const screenshot = await captureScreenshot(page.url);
-      if (screenshot) {
-        const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
-        if (publicUrl) {
-          await db
-            .update(pages)
-            .set({ screenshotUrl: publicUrl })
-            .where(eq(pages.id, page.id));
-        }
+    // Always capture/re-capture screenshot
+    const screenshot = await captureScreenshot(page.url);
+    if (screenshot) {
+      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+      if (publicUrl) {
+        await db
+          .update(pages)
+          .set({ screenshotUrl: publicUrl })
+          .where(eq(pages.id, page.id));
       }
     }
 
