@@ -20,13 +20,24 @@ export default async function CrawlPage({
       <div>
         <h2 className="text-xl font-bold">Crawl</h2>
         <p className="text-muted-foreground text-sm">
-          Crawl <strong>{project.websiteUrl}</strong> to discover pages for analysis.
+          Crawl <strong>{project.websiteUrl}</strong> to discover pages.
         </p>
       </div>
 
       <CrawlProgress projectId={id} initialStatus={project.status} pageCount={crawlPages.length} />
 
-      {crawlPages.length > 0 && <CrawlResultsTable pages={crawlPages} projectName={project.clientName} />}
+      {crawlPages.length > 0 && (
+        <CrawlResultsTable
+          pages={crawlPages.map((p) => ({
+            id: p.id,
+            url: p.url,
+            title: p.title,
+            wordCount: p.wordCount,
+            rawMarkdown: p.rawMarkdown ?? (p.metadata as Record<string, unknown>)?.markdown as string ?? null,
+          }))}
+          projectName={project.clientName}
+        />
+      )}
     </div>
   );
 }

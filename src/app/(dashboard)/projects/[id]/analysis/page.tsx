@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { projects, pages, templates, components } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { AnalysisRunner } from "@/components/analysis/analysis-runner";
 import { TemplateClusters } from "@/components/analysis/template-clusters";
 import { ContentTiers } from "@/components/analysis/content-tiers";
@@ -30,7 +30,7 @@ export default async function AnalysisPage({
   const projectPages = await db
     .select()
     .from(pages)
-    .where(eq(pages.projectId, id));
+    .where(and(eq(pages.projectId, id), eq(pages.excluded, false)));
 
   const projectTemplates = await db
     .select()

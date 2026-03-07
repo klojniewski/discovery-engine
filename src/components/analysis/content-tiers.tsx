@@ -1,4 +1,21 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Info, Loader2 } from "lucide-react";
+import { updatePageTier } from "@/actions/analysis";
 
 interface PageWithTier {
   id: string;
@@ -10,25 +27,89 @@ interface PageWithTier {
 }
 
 const TIER_CONFIG = {
-  must_migrate: { label: "Must Migrate", color: "bg-green-100 text-green-800" },
-  improve: { label: "Improve", color: "bg-blue-100 text-blue-800" },
-  consolidate: { label: "Consolidate", color: "bg-yellow-100 text-yellow-800" },
-  archive: { label: "Archive", color: "bg-red-100 text-red-800" },
+  must_migrate: {
+    label: "Must Migrate",
+    color: "bg-green-100 text-green-800",
+    tooltip:
+      "High-value pages with substantial content (300+ words), good metadata (title, description, H1), and prominent placement. These should be migrated as-is to the new platform.",
+  },
+  improve: {
+    label: "Improve",
+    color: "bg-blue-100 text-blue-800",
+    tooltip:
+      "Pages worth keeping but need improvement \u2014 may have thin content, missing metadata, or could benefit from better SEO. Migrate with enhancements.",
+  },
+  consolidate: {
+    label: "Consolidate",
+    color: "bg-yellow-100 text-yellow-800",
+    tooltip:
+      "Duplicate or near-duplicate pages that share the same content. Merge these into a single canonical page to avoid content dilution.",
+  },
+  archive: {
+    label: "Archive",
+    color: "bg-red-100 text-red-800",
+    tooltip:
+      "Low-value pages with very thin content, buried deep in navigation, or orphaned. Consider removing these or redirecting to relevant pages.",
+  },
 } as const;
 
+type TierKey = "must_migrate" | "improve" | "consolidate" | "archive";
+
 export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
+  const [tiers, setTiers] = useState<Record<string, string | null>>(() => {
+    const map: Record<string, string | null> = {};
+    for (const p of pages) map[p.id] = p.contentTier;
+    return map;
+  });
+  const [saving, setSaving] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const getTier = (pageId: string) => tiers[pageId] ?? null;
+
+  const handleTierChange = (pageId: string, newTier: TierKey) => {
+    setSaving(pageId);
+    setTiers((prev) => ({ ...prev, [pageId]: newTier }));
+    startTransition(async () => {
+      try {
+        await updatePageTier(pageId, newTier);
+      } catch (err) {
+        console.error("Failed to update tier:", err);
+      } finally {
+        setSaving(null);
+      }
+    });
+  };
+
   const tierCounts = {
-    must_migrate: pages.filter((p) => p.contentTier === "must_migrate").length,
-    improve: pages.filter((p) => p.contentTier === "improve").length,
-    consolidate: pages.filter((p) => p.contentTier === "consolidate").length,
-    archive: pages.filter((p) => p.contentTier === "archive").length,
-    unscored: pages.filter((p) => !p.contentTier).length,
+    must_migrate: pages.filter((p) => getTier(p.id) === "must_migrate").length,
+    improve: pages.filter((p) => getTier(p.id) === "improve").length,
+    consolidate: pages.filter((p) => getTier(p.id) === "consolidate").length,
+    archive: pages.filter((p) => getTier(p.id) === "archive").length,
+    unscored: pages.filter((p) => !getTier(p.id)).length,
   };
 
   const total = pages.length || 1;
 
   return (
     <div className="space-y-6">
+      {/* Methodology */}
+      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
+        <p className="font-medium text-foreground">How pages are scored</p>
+        <p>
+          Each page is evaluated by AI based on its{" "}
+          <strong>business value</strong> — considering the URL, title,
+          word count, and a preview of the actual content. Duplicate pages
+          (sharing the same content hash) are automatically flagged for
+          consolidation.
+        </p>
+        <ul className="list-disc list-inside space-y-0.5 text-xs">
+          <li><strong>Must Migrate</strong> — high-value pages critical to the business: homepage, service/product pages, case studies, about/team pages, substantial blog posts</li>
+          <li><strong>Improve</strong> — pages worth keeping but need work: thin landing pages, outdated content, poor structure but has potential value</li>
+          <li><strong>Consolidate</strong> — duplicate or near-duplicate content that should be merged into a single canonical page</li>
+          <li><strong>Archive</strong> — low-value pages to drop or redirect: legal boilerplate, empty/placeholder pages, outdated job postings, utility pages</li>
+        </ul>
+      </div>
+
       {/* Tier breakdown bar */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium">Tier Breakdown</h4>
@@ -49,13 +130,21 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-3 text-xs">
+        <div className="flex flex-wrap gap-4 text-xs">
           {Object.entries(TIER_CONFIG).map(([key, config]) => (
             <div key={key} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-sm ${config.color}`} />
               <span>
                 {config.label}: {tierCounts[key as keyof typeof tierCounts]}
               </span>
+              <Tooltip>
+                <TooltipTrigger className="cursor-help">
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  {config.tooltip}
+                </TooltipContent>
+              </Tooltip>
             </div>
           ))}
         </div>
@@ -75,15 +164,24 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
           <tbody>
             {pages
               .sort((a, b) => {
-                const order = { must_migrate: 0, improve: 1, consolidate: 2, archive: 3 };
+                const order = {
+                  must_migrate: 0,
+                  improve: 1,
+                  consolidate: 2,
+                  archive: 3,
+                };
+                const tierA = getTier(a.id);
+                const tierB = getTier(b.id);
                 return (
-                  (order[a.contentTier as keyof typeof order] ?? 4) -
-                  (order[b.contentTier as keyof typeof order] ?? 4)
+                  (order[tierA as keyof typeof order] ?? 4) -
+                  (order[tierB as keyof typeof order] ?? 4)
                 );
               })
               .map((page) => {
+                const currentTier = getTier(page.id);
                 const config =
-                  TIER_CONFIG[page.contentTier as keyof typeof TIER_CONFIG];
+                  TIER_CONFIG[currentTier as keyof typeof TIER_CONFIG];
+                const isSaving = saving === page.id;
                 return (
                   <tr
                     key={page.id}
@@ -100,19 +198,44 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                       </a>
                     </td>
                     <td className="p-3 max-w-xs truncate">
-                      {page.title || "—"}
+                      {page.title || "\u2014"}
                     </td>
                     <td className="p-3 text-right tabular-nums">
-                      {page.wordCount ?? "—"}
+                      {page.wordCount ?? "\u2014"}
                     </td>
                     <td className="p-3">
-                      {config ? (
-                        <Badge className={`${config.color} text-xs border-0`}>
-                          {config.label}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Select
+                          value={currentTier ?? ""}
+                          onValueChange={(val) =>
+                            handleTierChange(page.id, val as TierKey)
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-[140px] text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0">
+                            <SelectValue>
+                              {config ? (
+                                <Badge className={`${config.color} text-xs border-0`}>
+                                  {config.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">{"\u2014"}</span>
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(TIER_CONFIG).map(([key, cfg]) => (
+                              <SelectItem key={key} value={key} className="text-xs">
+                                <Badge className={`${cfg.color} text-xs border-0`}>
+                                  {cfg.label}
+                                </Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isSaving && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

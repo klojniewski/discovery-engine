@@ -42,12 +42,40 @@ export async function callClaudeWithImage(
     system,
   } = options;
 
-  // Fetch image and convert to base64
+  // Fetch image, resize if needed (Claude max 8000px per dimension), convert to base64
   const res = await fetch(imageUrl);
-  const arrayBuffer = await res.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  const rawBuffer = Buffer.from(await res.arrayBuffer());
   const rawType = res.headers.get("content-type") ?? "image/png";
-  const mediaType = (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(rawType) ? rawType : "image/png") as "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+  const sharp = (await import("sharp")).default;
+  const MAX_DIM = 7900; // slightly under 8000 to be safe
+
+  // Always run through sharp to ensure dimensions are within limits
+  const img = sharp(rawBuffer);
+  const meta = await img.metadata();
+  const needsResize =
+    (meta.width != null && meta.width > MAX_DIM) ||
+    (meta.height != null && meta.height > MAX_DIM);
+
+  let buffer: Buffer;
+  let mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+  if (needsResize) {
+    console.log(
+      `Resizing image from ${meta.width}x${meta.height} to fit ${MAX_DIM}px limit`
+    );
+    buffer = await sharp(rawBuffer)
+      .resize(MAX_DIM, MAX_DIM, { fit: "inside", withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    mediaType = "image/png";
+  } else {
+    buffer = rawBuffer;
+    const validTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    mediaType = (validTypes.includes(rawType) ? rawType : "image/png") as typeof mediaType;
+  }
+
+  const base64 = buffer.toString("base64");
 
   const response = await client.messages.create({
     model,

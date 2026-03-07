@@ -15,7 +15,7 @@ const BUCKET = "screenshots";
 export async function captureScreenshot(url: string): Promise<string | null> {
   try {
     const response = await firecrawl.v1.scrapeUrl(url, {
-      formats: ["screenshot"],
+      formats: ["screenshot@fullPage"],
     });
 
     if (!response.success || !response.screenshot) {
@@ -63,7 +63,7 @@ export async function uploadScreenshot(
     }
 
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    return `${data.publicUrl}?t=${Date.now()}`;
   } catch (err) {
     console.error(`Upload failed:`, err);
     return null;

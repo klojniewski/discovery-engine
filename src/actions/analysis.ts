@@ -2,11 +2,10 @@
 
 import { db } from "@/db";
 import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
-import { assignContentTier } from "@/services/scoring";
+import { scorePages } from "@/services/scoring";
 import { detectComponents } from "@/services/components";
-import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
 
 export async function getAnalysisStatus(projectId: string) {
   const [project] = await db
@@ -54,47 +53,11 @@ async function updateStep(
     .where(eq(projects.id, projectId));
 }
 
-export async function runScreenshots(projectId: string) {
-  const projectPages = await db
-    .select()
-    .from(pages)
-    .where(eq(pages.projectId, projectId));
-
-  const total = projectPages.length;
-  let captured = 0;
-
-  // Count already-captured screenshots
-  for (const page of projectPages) {
-    if (page.screenshotUrl) captured++;
-  }
-
-  await updateStep(projectId, "screenshots", { completed: captured, total });
-
-  for (const page of projectPages) {
-    if (page.screenshotUrl) continue; // already has screenshot
-
-    const screenshot = await captureScreenshot(page.url);
-    if (screenshot) {
-      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
-      if (publicUrl) {
-        await db
-          .update(pages)
-          .set({ screenshotUrl: publicUrl })
-          .where(eq(pages.id, page.id));
-      }
-    }
-    captured++;
-    await updateStep(projectId, "screenshots", { completed: captured, total });
-  }
-
-  return { captured, total: projectPages.length };
-}
-
 export async function runClassification(projectId: string) {
   const projectPages = await db
     .select()
     .from(pages)
-    .where(eq(pages.projectId, projectId));
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
 
   await updateStep(projectId, "classification", {
     completed: 0,
@@ -106,8 +69,7 @@ export async function runClassification(projectId: string) {
     title: p.title,
     metaDescription: p.metaDescription,
     wordCount: p.wordCount,
-    contentPreview:
-      (p.metadata as Record<string, unknown>)?.markdown as string | null ?? null,
+    contentPreview: p.rawMarkdown?.slice(0, 10000) ?? null,
   }));
 
   const results = await classifyPages(pageInputs);
@@ -125,7 +87,11 @@ export async function runClassification(projectId: string) {
     templateGroups.set(r.templateType, group);
   }
 
-  // Clear existing templates for this project
+  // Clear existing template references from pages, then delete templates
+  await db
+    .update(pages)
+    .set({ templateId: null })
+    .where(eq(pages.projectId, projectId));
   await db.delete(templates).where(eq(templates.projectId, projectId));
 
   for (const [type, group] of templateGroups) {
@@ -174,7 +140,7 @@ export async function runContentScoring(projectId: string) {
   const projectPages = await db
     .select()
     .from(pages)
-    .where(eq(pages.projectId, projectId));
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
 
   // Detect duplicates by content hash
   const hashCounts = new Map<string, number>();
@@ -184,28 +150,32 @@ export async function runContentScoring(projectId: string) {
     }
   }
 
+  const pageInputs = projectPages.map((p) => ({
+    url: p.url,
+    title: p.title,
+    metaDescription: p.metaDescription,
+    wordCount: p.wordCount,
+    contentPreview: p.rawMarkdown?.slice(0, 500) ?? null,
+    isDuplicate: p.contentHash
+      ? (hashCounts.get(p.contentHash) ?? 0) > 1
+      : false,
+  }));
+
+  const results = await scorePages(pageInputs);
+
   let scored = 0;
-  for (const page of projectPages) {
+  for (const result of results) {
+    const page = projectPages.find((p) => p.url === result.url);
+    if (!page) continue;
+
     const isDuplicate = page.contentHash
       ? (hashCounts.get(page.contentHash) ?? 0) > 1
       : false;
 
-    const tier = assignContentTier({
-      wordCount: page.wordCount ?? 0,
-      navigationDepth: page.navigationDepth ?? 1,
-      hasTitle: !!page.title,
-      titleLength: page.title?.length ?? 0,
-      hasMetaDescription: !!page.metaDescription,
-      metaDescriptionLength: page.metaDescription?.length ?? 0,
-      hasH1: !!page.h1,
-      isDuplicate,
-      isOrphan: page.isOrphan ?? false,
-    });
-
     await db
       .update(pages)
       .set({
-        contentTier: tier,
+        contentTier: result.tier,
         isDuplicate,
       })
       .where(eq(pages.id, page.id));
@@ -278,16 +248,13 @@ export async function runFullAnalysis(projectId: string) {
       .set({ status: "analyzing" })
       .where(eq(projects.id, projectId));
 
-    // Step 1: Screenshots
-    const screenshotResult = await runScreenshots(projectId);
-
-    // Step 2: Classification
+    // Step 1: Classification
     const classificationResult = await runClassification(projectId);
 
-    // Step 3: Content scoring
+    // Step 2: Content scoring
     const scoringResult = await runContentScoring(projectId);
 
-    // Step 4: Component detection
+    // Step 3: Component detection
     const componentResult = await runComponentDetection(projectId);
 
     // Done
@@ -312,7 +279,6 @@ export async function runFullAnalysis(projectId: string) {
       .where(eq(projects.id, projectId));
 
     return {
-      screenshots: screenshotResult,
       classification: classificationResult,
       scoring: scoringResult,
       components: componentResult,
@@ -337,4 +303,32 @@ export async function runFullAnalysis(projectId: string) {
 
     throw err;
   }
+}
+
+export async function renameTemplate(templateId: string, displayName: string) {
+  await db
+    .update(templates)
+    .set({ displayName })
+    .where(eq(templates.id, templateId));
+}
+
+export async function updatePageTier(
+  pageId: string,
+  tier: "must_migrate" | "improve" | "consolidate" | "archive"
+) {
+  await db
+    .update(pages)
+    .set({ contentTier: tier })
+    .where(eq(pages.id, pageId));
+}
+
+export async function getTemplatePages(templateId: string) {
+  return db
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+    })
+    .from(pages)
+    .where(eq(pages.templateId, templateId));
 }

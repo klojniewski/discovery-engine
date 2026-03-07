@@ -20,18 +20,19 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
 
   const isCrawling = status === "crawling";
   const canStartCrawl = status === "created" || status === "crawl_failed";
+  const isCrawled = !canStartCrawl && !isCrawling;
 
   useEffect(() => {
     if (!isCrawling) return;
 
     const interval = setInterval(() => {
-      pollCrawlStatus(projectId).then((result) => {
-        setStatus(result.status);
-        setTotal(result.total);
-        setCompleted(result.completed);
-      }).catch((err) => {
-        setError(String(err));
-      });
+      pollCrawlStatus(projectId)
+        .then((result) => {
+          setStatus(result.status);
+          setTotal(result.total);
+          setCompleted(result.completed);
+        })
+        .catch((err) => setError(String(err)));
     }, 5000);
 
     return () => clearInterval(interval);
@@ -62,7 +63,7 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
           <p className="text-muted-foreground">
             {status === "crawl_failed"
               ? "The previous crawl failed. You can retry."
-              : "Ready to crawl. Click below to start."}
+              : "Ready to crawl. Click below to start discovering pages."}
           </p>
           <Button onClick={handleStartCrawl} disabled={isPending}>
             {isPending ? (
@@ -80,14 +81,17 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
       )}
 
       {isCrawling && (
-        <div className="rounded-lg border p-6 space-y-3">
-          <div className="flex items-center gap-2">
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="font-medium">Crawling in progress...</span>
-          </div>
-          <div className="flex gap-6 text-sm text-muted-foreground">
-            <span>Pages found: <strong className="text-foreground">{total}</strong></span>
-            <span>Completed: <strong className="text-foreground">{completed}</strong></span>
+            <span>
+              Discovering pages...
+              {total > 0 && (
+                <span className="ml-1.5 text-muted-foreground">
+                  ({completed}/{total})
+                </span>
+              )}
+            </span>
           </div>
           {total > 0 && (
             <div className="w-full bg-muted rounded-full h-2">
@@ -97,15 +101,13 @@ export function CrawlProgress({ projectId, initialStatus, pageCount }: CrawlProg
               />
             </div>
           )}
-          <p className="text-xs text-muted-foreground">Polling every 5 seconds...</p>
         </div>
       )}
 
-      {(status === "reviewing" || status === "analyzing") && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-6 space-y-2">
-          <p className="font-medium text-green-900">Crawl completed!</p>
-          <p className="text-sm text-green-700">
-            {pageCount} pages crawled. Results are stored and ready for review.
+      {isCrawled && pageCount > 0 && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+          <p className="text-sm text-green-900">
+            <strong>{pageCount} pages</strong> discovered. Go to the <strong>Scrape</strong> tab to select pages and capture content and screenshots.
           </p>
         </div>
       )}

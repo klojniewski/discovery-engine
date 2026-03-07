@@ -60,7 +60,7 @@ export default async function ProjectsPage() {
               <div className="flex items-center gap-3">
                 <Badge variant="outline">{project.status}</Badge>
                 <span className="text-xs text-muted-foreground">
-                  {project.createdAt.toLocaleDateString()}
+                  {project.createdAt.toLocaleDateString("en-GB")}
                 </span>
               </div>
             </Link>

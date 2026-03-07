@@ -6,7 +6,6 @@ import { Loader2, Play, RotateCcw, CheckCircle2, Circle, AlertCircle } from "luc
 import { runFullAnalysis, getAnalysisStatus } from "@/actions/analysis";
 
 const STEPS = [
-  { key: "screenshots", label: "Capturing Screenshots" },
   { key: "classification", label: "Classifying Templates" },
   { key: "scoring", label: "Scoring Content" },
   { key: "components", label: "Detecting Components" },
@@ -58,7 +57,7 @@ export function AnalysisRunner({
   function handleRun() {
     setError(null);
     setStatus("analyzing");
-    setCurrentStep("screenshots");
+    setCurrentStep("classification");
     startTransition(async () => {
       try {
         await runFullAnalysis(projectId);
@@ -87,7 +86,7 @@ export function AnalysisRunner({
           <p className="text-muted-foreground">
             {status === "analysis_failed"
               ? "Analysis failed. You can retry."
-              : "Ready to analyze. This will capture screenshots, classify templates, score content, and detect components."}
+              : "Ready to analyze. This will classify templates, score content, and detect components."}
           </p>
           <Button onClick={handleRun} disabled={isPending}>
             {isPending ? (

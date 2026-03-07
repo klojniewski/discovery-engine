@@ -3,12 +3,13 @@
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { projects, pages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   startCrawl as firecrawlStart,
   getCrawlStatus as firecrawlStatus,
   getAllCrawlResults,
 } from "@/services/firecrawl";
+import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
 import crypto from "crypto";
 
 export async function createProject(formData: FormData) {
@@ -113,7 +114,7 @@ export async function pollCrawlStatus(projectId: string) {
   }
 
   return {
-    status: crawlStatus.status === "completed" ? "analyzing" : crawlStatus.status === "failed" ? "crawl_failed" : "crawling",
+    status: crawlStatus.status === "completed" ? "crawled" : crawlStatus.status === "failed" ? "crawl_failed" : "crawling",
     total: crawlStatus.total,
     completed: crawlStatus.completed,
   };
@@ -140,11 +141,12 @@ async function storeCrawlResults(projectId: string, jobId: string) {
         h1: null as string | null,
         wordCount,
         contentHash,
+        rawMarkdown: markdown || null,
+        rawHtml: p.html || null,
         metadata: {
           language: p.metadata?.language,
           ogTitle: p.metadata?.ogTitle,
           ogDescription: p.metadata?.ogDescription,
-          markdown: markdown.slice(0, 10000),
         },
       };
     });
@@ -160,7 +162,7 @@ async function storeCrawlResults(projectId: string, jobId: string) {
   await db
     .update(projects)
     .set({
-      status: "reviewing",
+      status: "crawled",
       crawlCompletedAt: new Date(),
     })
     .where(eq(projects.id, projectId));
@@ -181,4 +183,273 @@ export async function getProjectPages(projectId: string) {
     .select()
     .from(pages)
     .where(eq(pages.projectId, projectId));
+}
+
+export async function startScreenshots(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  const total = projectPages.length;
+  let captured = 0;
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl) captured++;
+  }
+
+  await db
+    .update(projects)
+    .set({
+      status: "screenshotting",
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        screenshotProgress: { completed: captured, total },
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  for (const page of projectPages) {
+    if (page.screenshotUrl) continue;
+
+    const screenshot = await captureScreenshot(page.url);
+    if (screenshot) {
+      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+      if (publicUrl) {
+        await db
+          .update(pages)
+          .set({ screenshotUrl: publicUrl })
+          .where(eq(pages.id, page.id));
+      }
+    }
+    captured++;
+
+    // Update progress
+    const [current] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    await db
+      .update(projects)
+      .set({
+        settings: {
+          ...(current.settings as Record<string, unknown>),
+          screenshotProgress: { completed: captured, total },
+        },
+      })
+      .where(eq(projects.id, projectId));
+  }
+
+  // Done
+  const [final] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  await db
+    .update(projects)
+    .set({
+      status: "reviewing",
+      settings: {
+        ...(final.settings as Record<string, unknown>),
+        screenshotProgress: undefined,
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  return { captured, total };
+}
+
+export async function getScreenshotProgress(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as {
+    screenshotProgress?: { completed: number; total: number };
+  } | null;
+
+  return {
+    status: project.status,
+    progress: settings?.screenshotProgress ?? null,
+  };
+}
+
+export async function retakeScreenshot(pageId: string) {
+  const [page] = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.id, pageId))
+    .limit(1);
+
+  if (!page) throw new Error("Page not found");
+
+  const screenshot = await captureScreenshot(page.url);
+  if (!screenshot) throw new Error("Failed to capture screenshot");
+
+  const publicUrl = await uploadScreenshot(page.projectId, page.id, screenshot);
+  if (!publicUrl) throw new Error("Failed to upload screenshot");
+
+  await db
+    .update(pages)
+    .set({ screenshotUrl: publicUrl })
+    .where(eq(pages.id, pageId));
+
+  return { screenshotUrl: publicUrl };
+}
+
+export async function togglePageExclusion(pageId: string, excluded: boolean) {
+  await db
+    .update(pages)
+    .set({ excluded })
+    .where(eq(pages.id, pageId));
+}
+
+export async function bulkToggleExclusion(
+  pageIds: string[],
+  excluded: boolean
+) {
+  if (pageIds.length === 0) return;
+  await db
+    .update(pages)
+    .set({ excluded })
+    .where(inArray(pages.id, pageIds));
+}
+
+export async function startScraping(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  // Only scrape non-excluded pages
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+
+  const total = projectPages.length;
+  let completed = 0;
+
+  // Screenshots are always re-captured; only skip content scraping for pages that have it
+
+
+  await db
+    .update(projects)
+    .set({
+      status: "scraping",
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        scrapeProgress: { completed, total },
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  for (const page of projectPages) {
+    // Scrape content if missing
+    if (!page.rawMarkdown) {
+      try {
+        const { scrapeUrl } = await import("@/services/firecrawl");
+        const result = await scrapeUrl(page.url);
+        if (result) {
+          await db
+            .update(pages)
+            .set({
+              rawMarkdown: result.markdown || null,
+              rawHtml: result.html || null,
+              wordCount: result.markdown
+                ? result.markdown.split(/\s+/).filter(Boolean).length
+                : page.wordCount,
+            })
+            .where(eq(pages.id, page.id));
+        }
+      } catch (err) {
+        console.error(`Scrape failed for ${page.url}:`, err);
+      }
+    }
+
+    // Always capture/re-capture screenshot
+    const screenshot = await captureScreenshot(page.url);
+    if (screenshot) {
+      const publicUrl = await uploadScreenshot(projectId, page.id, screenshot);
+      if (publicUrl) {
+        await db
+          .update(pages)
+          .set({ screenshotUrl: publicUrl })
+          .where(eq(pages.id, page.id));
+      }
+    }
+
+    completed++;
+
+    // Update progress
+    const [current] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    await db
+      .update(projects)
+      .set({
+        settings: {
+          ...(current.settings as Record<string, unknown>),
+          scrapeProgress: { completed, total },
+        },
+      })
+      .where(eq(projects.id, projectId));
+  }
+
+  // Done
+  const [final] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  await db
+    .update(projects)
+    .set({
+      status: "reviewing",
+      settings: {
+        ...(final.settings as Record<string, unknown>),
+        scrapeProgress: undefined,
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  return { completed, total };
+}
+
+export async function getScrapeProgress(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as {
+    scrapeProgress?: { completed: number; total: number };
+  } | null;
+
+  return {
+    status: project.status,
+    progress: settings?.scrapeProgress ?? null,
+  };
 }

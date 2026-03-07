@@ -25,6 +25,8 @@ export const projects = pgTable("projects", {
     analysisStep?: string;
     analysisError?: string;
     analysisProgress?: { completed: number; total: number };
+    screenshotProgress?: { completed: number; total: number };
+    scrapeProgress?: { completed: number; total: number };
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -58,11 +60,14 @@ export const pages = pgTable("pages", {
   metaDescription: text("meta_description"),
   h1: text("h1"),
   wordCount: integer("word_count"),
+  rawMarkdown: text("raw_markdown"),
+  rawHtml: text("raw_html"),
   htmlSnapshotUrl: text("html_snapshot_url"),
   screenshotUrl: text("screenshot_url"),
   templateId: uuid("template_id").references(() => templates.id),
   contentTier: varchar("content_tier", { length: 50 }),
   navigationDepth: integer("navigation_depth"),
+  excluded: boolean("excluded").default(false),
   isOrphan: boolean("is_orphan").default(false),
   isDuplicate: boolean("is_duplicate").default(false),
   contentHash: text("content_hash"),

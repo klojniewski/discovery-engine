@@ -17,7 +17,7 @@ export async function startCrawl({ url, limit = 500, excludePaths }: CrawlOption
     limit,
     excludePaths: excludePaths?.length ? excludePaths : undefined,
     scrapeOptions: {
-      formats: ["markdown"],
+      formats: ["markdown", "html"],
     },
   });
 
@@ -39,6 +39,7 @@ export interface CrawlStatusResult {
 
 export interface CrawlPage {
   markdown?: string;
+  html?: string;
   metadata?: {
     title?: string;
     description?: string;
@@ -80,4 +81,27 @@ export async function getAllCrawlResults(jobId: string): Promise<CrawlPage[]> {
   // TODO: handle pagination via response.next if needed for large crawls
 
   return allPages;
+}
+
+export async function scrapeUrl(
+  url: string
+): Promise<{ markdown?: string; html?: string } | null> {
+  try {
+    const response = await api.scrapeUrl(url, {
+      formats: ["markdown", "html"],
+    });
+
+    if (!response.success) {
+      console.warn(`Scrape failed for ${url}: ${response.error}`);
+      return null;
+    }
+
+    return {
+      markdown: response.markdown,
+      html: response.html,
+    };
+  } catch (err) {
+    console.error(`Scrape error for ${url}:`, err);
+    return null;
+  }
 }
