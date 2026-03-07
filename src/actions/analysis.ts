@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { projects, pages, templates, components, componentPages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
-import { assignContentTier } from "@/services/scoring";
+import { scorePages } from "@/services/scoring";
 import { detectComponents } from "@/services/components";
 
 export async function getAnalysisStatus(projectId: string) {
@@ -87,7 +87,11 @@ export async function runClassification(projectId: string) {
     templateGroups.set(r.templateType, group);
   }
 
-  // Clear existing templates for this project
+  // Clear existing template references from pages, then delete templates
+  await db
+    .update(pages)
+    .set({ templateId: null })
+    .where(eq(pages.projectId, projectId));
   await db.delete(templates).where(eq(templates.projectId, projectId));
 
   for (const [type, group] of templateGroups) {
@@ -146,28 +150,32 @@ export async function runContentScoring(projectId: string) {
     }
   }
 
+  const pageInputs = projectPages.map((p) => ({
+    url: p.url,
+    title: p.title,
+    metaDescription: p.metaDescription,
+    wordCount: p.wordCount,
+    contentPreview: p.rawMarkdown?.slice(0, 500) ?? null,
+    isDuplicate: p.contentHash
+      ? (hashCounts.get(p.contentHash) ?? 0) > 1
+      : false,
+  }));
+
+  const results = await scorePages(pageInputs);
+
   let scored = 0;
-  for (const page of projectPages) {
+  for (const result of results) {
+    const page = projectPages.find((p) => p.url === result.url);
+    if (!page) continue;
+
     const isDuplicate = page.contentHash
       ? (hashCounts.get(page.contentHash) ?? 0) > 1
       : false;
 
-    const tier = assignContentTier({
-      wordCount: page.wordCount ?? 0,
-      navigationDepth: page.navigationDepth ?? 1,
-      hasTitle: !!page.title,
-      titleLength: page.title?.length ?? 0,
-      hasMetaDescription: !!page.metaDescription,
-      metaDescriptionLength: page.metaDescription?.length ?? 0,
-      hasH1: !!page.h1,
-      isDuplicate,
-      isOrphan: page.isOrphan ?? false,
-    });
-
     await db
       .update(pages)
       .set({
-        contentTier: tier,
+        contentTier: result.tier,
         isDuplicate,
       })
       .where(eq(pages.id, page.id));

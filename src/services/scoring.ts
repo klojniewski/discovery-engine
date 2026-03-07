@@ -1,80 +1,109 @@
-export type ContentTier =
-  | "must_migrate"
-  | "improve"
-  | "consolidate"
-  | "archive";
+import { callClaude } from "./anthropic";
+
+export type ContentTier = "must_migrate" | "improve" | "consolidate" | "archive";
 
 interface PageScoringInput {
+  url: string;
+  title: string | null;
+  metaDescription: string | null;
   wordCount: number | null;
-  navigationDepth: number | null;
-  hasTitle: boolean;
-  hasMetaDescription: boolean;
-  hasH1: boolean;
-  titleLength: number;
-  metaDescriptionLength: number;
+  contentPreview: string | null;
   isDuplicate: boolean;
-  isOrphan: boolean;
 }
 
-export function assignContentTier(input: PageScoringInput): ContentTier {
-  const {
-    wordCount,
-    navigationDepth,
-    hasTitle,
-    hasMetaDescription,
-    hasH1,
-    titleLength,
-    metaDescriptionLength,
-    isDuplicate,
-    isOrphan,
-  } = input;
+interface ScoringResult {
+  url: string;
+  tier: ContentTier;
+  reasoning: string;
+}
 
-  // Duplicates always go to consolidate
-  if (isDuplicate) {
-    return "consolidate";
+export async function scorePages(
+  pages: PageScoringInput[]
+): Promise<ScoringResult[]> {
+  // Mark duplicates immediately
+  const duplicates = pages.filter((p) => p.isDuplicate);
+  const nonDuplicates = pages.filter((p) => !p.isDuplicate);
+
+  const duplicateResults: ScoringResult[] = duplicates.map((p) => ({
+    url: p.url,
+    tier: "consolidate" as const,
+    reasoning: "Duplicate content detected (same content hash as another page)",
+  }));
+
+  if (nonDuplicates.length === 0) return duplicateResults;
+
+  // Batch non-duplicates in groups of 15
+  const aiResults: ScoringResult[] = [];
+  for (let i = 0; i < nonDuplicates.length; i += 15) {
+    const batch = nonDuplicates.slice(i, i + 15);
+    const batchResults = await scoreBatch(batch);
+    aiResults.push(...batchResults);
   }
 
-  const words = wordCount ?? 0;
-  const depth = navigationDepth ?? 99;
+  return [...duplicateResults, ...aiResults];
+}
 
-  // Thin content + deep + poor metadata = archive
-  if (words < 300 && depth > 3) {
-    return "archive";
+async function scoreBatch(pages: PageScoringInput[]): Promise<ScoringResult[]> {
+  const pagesDescription = pages
+    .map(
+      (p, idx) =>
+        `Page ${idx + 1}:
+  URL: ${p.url}
+  Title: ${p.title ?? "N/A"}
+  Meta description: ${p.metaDescription ?? "N/A"}
+  Word count: ${p.wordCount ?? "N/A"}
+  Content preview: ${(p.contentPreview ?? "").slice(0, 500)}`
+    )
+    .join("\n\n");
+
+  const prompt = `You are evaluating pages for a website migration audit. Assign each page a content tier based on its VALUE to the business and users.
+
+TIERS:
+- "must_migrate": High-value pages critical to the business — homepage, key service/product pages, case studies, about pages, team pages, pricing. Content that drives conversions, establishes authority, or is essential for the site to function.
+- "improve": Pages worth keeping but need work — thin landing pages, outdated content, pages with poor structure. They have potential value but aren't migration-ready as-is.
+- "archive": Low-value pages to drop or redirect — legal boilerplate (cookies/privacy policies), empty/placeholder pages, outdated job postings, utility pages with no SEO or business value.
+
+GUIDELINES:
+- Judge by CONTENT VALUE, not metadata formatting
+- A 3000-word case study is always more valuable than a 500-word cookies policy
+- Service/product pages are typically must_migrate even if metadata is imperfect
+- Blog posts with substantial content (500+ words) are usually must_migrate
+- Legal/policy pages (cookies, privacy, terms) are almost always archive
+- Pages with very few words (<50) and no clear purpose are archive
+- Career/job pages depend on whether they're actively used
+
+Pages to evaluate:
+${pagesDescription}
+
+Return a JSON array with exactly ${pages.length} objects:
+- "url": the exact URL
+- "tier": one of "must_migrate", "improve", "archive"
+- "reasoning": one sentence explaining why`;
+
+  const response = await callClaude(prompt);
+
+  try {
+    const cleaned = response
+      .replace(/^```(?:json)?\s*\n?/m, "")
+      .replace(/\n?```\s*$/m, "");
+    const parsed = JSON.parse(cleaned);
+    return (Array.isArray(parsed) ? parsed : []).map(
+      (item: Record<string, string>) => ({
+        url: item.url,
+        tier: (["must_migrate", "improve", "consolidate", "archive"].includes(
+          item.tier
+        )
+          ? item.tier
+          : "improve") as ContentTier,
+        reasoning: item.reasoning ?? "",
+      })
+    );
+  } catch {
+    console.error("Failed to parse scoring response:", response);
+    return pages.map((p) => ({
+      url: p.url,
+      tier: "improve" as const,
+      reasoning: "Scoring failed — defaulting to improve",
+    }));
   }
-
-  // Check metadata quality
-  const hasGoodTitle = hasTitle && titleLength >= 30 && titleLength <= 60;
-  const hasGoodDescription =
-    hasMetaDescription &&
-    metaDescriptionLength >= 120 &&
-    metaDescriptionLength <= 160;
-  const hasGoodMetadata = hasGoodTitle && hasGoodDescription && hasH1;
-
-  // Substantial content + good metadata + prominent = must migrate
-  if (words >= 1000 && hasGoodMetadata && depth <= 2) {
-    return "must_migrate";
-  }
-
-  // Substantial content but missing some quality signals
-  if (words >= 300 && depth <= 3) {
-    if (hasGoodMetadata) {
-      return "must_migrate";
-    }
-    return "improve";
-  }
-
-  // Thin content but still reachable
-  if (words < 300 && depth <= 3) {
-    if (isOrphan) {
-      return "archive";
-    }
-    return "improve";
-  }
-
-  // Deep pages with content
-  if (words >= 300 && depth > 3) {
-    return "improve";
-  }
-
-  return "archive";
 }

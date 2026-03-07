@@ -57,6 +57,24 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
 
   return (
     <div className="space-y-6">
+      {/* Methodology */}
+      <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
+        <p className="font-medium text-foreground">How pages are scored</p>
+        <p>
+          Each page is evaluated by AI based on its{" "}
+          <strong>business value</strong> — considering the URL, title,
+          word count, and a preview of the actual content. Duplicate pages
+          (sharing the same content hash) are automatically flagged for
+          consolidation.
+        </p>
+        <ul className="list-disc list-inside space-y-0.5 text-xs">
+          <li><strong>Must Migrate</strong> — high-value pages critical to the business: homepage, service/product pages, case studies, about/team pages, substantial blog posts</li>
+          <li><strong>Improve</strong> — pages worth keeping but need work: thin landing pages, outdated content, poor structure but has potential value</li>
+          <li><strong>Consolidate</strong> — duplicate or near-duplicate content that should be merged into a single canonical page</li>
+          <li><strong>Archive</strong> — low-value pages to drop or redirect: legal boilerplate, empty/placeholder pages, outdated job postings, utility pages</li>
+        </ul>
+      </div>
+
       {/* Tier breakdown bar */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium">Tier Breakdown</h4>
