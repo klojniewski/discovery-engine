@@ -69,18 +69,13 @@ export async function getCrawlStatus(jobId: string): Promise<CrawlStatusResult> 
 }
 
 export async function getAllCrawlResults(jobId: string): Promise<CrawlPage[]> {
-  const allPages: CrawlPage[] = [];
-  const response = await api.checkCrawlStatus(jobId);
+  const response = await api.checkCrawlStatus(jobId, true);
 
   if (!response.success) {
     throw new Error(`Failed to get crawl results: ${response.error}`);
   }
 
-  allPages.push(...((response.data ?? []) as CrawlPage[]));
-
-  // TODO: handle pagination via response.next if needed for large crawls
-
-  return allPages;
+  return (response.data ?? []) as CrawlPage[];
 }
 
 export async function scrapeUrl(
