@@ -73,11 +73,14 @@ export async function classifyAndScorePages(
   const aiResults: ClassifyAndScoreResult[] = [];
   for (let i = 0; i < nonDuplicates.length; i += 10) {
     const batch = nonDuplicates.slice(i, i + 10);
+    if (onProgress) {
+      await onProgress(duplicates.length + i, pages.length);
+    }
     const batchResults = await classifyAndScoreBatch(batch, projectId);
     aiResults.push(...batchResults);
-    if (onProgress) {
-      await onProgress(duplicates.length + aiResults.length, pages.length);
-    }
+  }
+  if (onProgress) {
+    await onProgress(pages.length, pages.length);
   }
 
   return [...duplicateResults, ...aiResults];
