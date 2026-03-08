@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { projects, pages } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   startCrawl as firecrawlStart,
   getCrawlStatus as firecrawlStatus,
@@ -226,6 +226,44 @@ export async function getProjectPages(projectId: string) {
     .select()
     .from(pages)
     .where(eq(pages.projectId, projectId));
+}
+
+export async function getProjectPagesPaginated(
+  projectId: string,
+  page: number = 1,
+  perPage: number = 50
+) {
+  const offset = (page - 1) * perPage;
+
+  const [items, countResult] = await Promise.all([
+    db
+      .select({
+        id: pages.id,
+        url: pages.url,
+        title: pages.title,
+        wordCount: pages.wordCount,
+        rawMarkdown: pages.rawMarkdown,
+      })
+      .from(pages)
+      .where(eq(pages.projectId, projectId))
+      .orderBy(pages.url)
+      .limit(perPage)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(pages)
+      .where(eq(pages.projectId, projectId)),
+  ]);
+
+  const total = Number(countResult[0].count);
+
+  return {
+    items,
+    total,
+    page,
+    perPage,
+    totalPages: Math.ceil(total / perPage),
+  };
 }
 
 export async function startScreenshots(projectId: string) {

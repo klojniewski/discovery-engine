@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ContentPreviewPanel } from "./content-preview-panel";
 
 interface CrawlPage {
@@ -16,9 +17,17 @@ interface CrawlPage {
 export function CrawlResultsTable({
   pages,
   projectName,
+  totalCount,
+  currentPage,
+  totalPages,
+  projectId,
 }: {
   pages: CrawlPage[];
   projectName: string;
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  projectId: string;
 }) {
   const [previewPage, setPreviewPage] = useState<CrawlPage | null>(null);
 
@@ -40,10 +49,13 @@ export function CrawlResultsTable({
     URL.revokeObjectURL(url);
   }
 
+  const startItem = (currentPage - 1) * 50 + 1;
+  const endItem = Math.min(currentPage * 50, totalCount);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium">Crawled Pages ({pages.length})</h3>
+        <h3 className="font-medium">Crawled Pages ({totalCount})</h3>
         <Button variant="outline" size="sm" onClick={exportCsv}>
           <Download className="h-4 w-4 mr-1" />
           Export CSV
@@ -112,6 +124,59 @@ export function CrawlResultsTable({
         </table>
       </div>
 
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            Showing {startItem}–{endItem} of {totalCount}
+          </p>
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/projects/${projectId}/crawl?page=${currentPage - 1}`}
+              className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
+                currentPage <= 1
+                  ? "pointer-events-none opacity-50"
+                  : "hover:bg-muted"
+              }`}
+              aria-disabled={currentPage <= 1}
+              tabIndex={currentPage <= 1 ? -1 : undefined}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Link>
+            {generatePageNumbers(currentPage, totalPages).map((p, i) =>
+              p === "..." ? (
+                <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground">
+                  ...
+                </span>
+              ) : (
+                <Link
+                  key={p}
+                  href={`/projects/${projectId}/crawl?page=${p}`}
+                  className={`inline-flex items-center justify-center rounded-md h-8 min-w-8 px-2 text-sm ${
+                    p === currentPage
+                      ? "bg-primary text-primary-foreground"
+                      : "border hover:bg-muted"
+                  }`}
+                >
+                  {p}
+                </Link>
+              )
+            )}
+            <Link
+              href={`/projects/${projectId}/crawl?page=${currentPage + 1}`}
+              className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
+                currentPage >= totalPages
+                  ? "pointer-events-none opacity-50"
+                  : "hover:bg-muted"
+              }`}
+              aria-disabled={currentPage >= totalPages}
+              tabIndex={currentPage >= totalPages ? -1 : undefined}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {previewPage && (
         <ContentPreviewPanel
           page={previewPage}
@@ -120,4 +185,26 @@ export function CrawlResultsTable({
       )}
     </div>
   );
+}
+
+function generatePageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const pages: (number | "...")[] = [1];
+
+  if (current > 3) pages.push("...");
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  if (current < total - 2) pages.push("...");
+
+  pages.push(total);
+  return pages;
 }
