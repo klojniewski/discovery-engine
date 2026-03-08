@@ -178,11 +178,33 @@ function normalizeUrl(raw: string): string {
   }
 }
 
+const JUNK_URL_PATTERNS = [
+  /\.xml$/i,
+  /\.txt$/i,
+  /\.json$/i,
+  /\/feed\/?$/i,
+  /\/rss\/?$/i,
+  /\/wp-json(\/|$)/i,
+  /\/wp-admin(\/|$)/i,
+  /\/wp-login\.php/i,
+  /\/wp-cron\.php/i,
+  /\/xmlrpc\.php/i,
+];
+
+function isJunkUrl(url: string): boolean {
+  try {
+    const { pathname } = new URL(url);
+    return JUNK_URL_PATTERNS.some((pattern) => pattern.test(pathname));
+  } catch {
+    return false;
+  }
+}
+
 async function storeCrawlResults(projectId: string, jobId: string) {
   const crawlPages = await getAllCrawlResults(jobId);
 
   const pageRecords = crawlPages
-    .filter((p) => p.metadata?.sourceURL)
+    .filter((p) => p.metadata?.sourceURL && !isJunkUrl(p.metadata.sourceURL))
     .map((p) => {
       const markdown = p.markdown ?? "";
       const wordCount = markdown.split(/\s+/).filter(Boolean).length;
