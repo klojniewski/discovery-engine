@@ -6,6 +6,8 @@ export interface SectionComponent {
 
 export interface PageSection {
   sectionLabel: string;
+  yStartPercent: number;
+  yEndPercent: number;
   components: SectionComponent[];
 }
 
@@ -17,6 +19,8 @@ export function parsePageSections(raw: unknown): PageSection[] {
     .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
     .map((item) => ({
       sectionLabel: typeof item.sectionLabel === "string" ? item.sectionLabel : "Unknown Section",
+      yStartPercent: typeof item.yStartPercent === "number" ? item.yStartPercent : 0,
+      yEndPercent: typeof item.yEndPercent === "number" ? item.yEndPercent : 0,
       components: Array.isArray(item.components)
         ? item.components
             .filter((c): c is Record<string, unknown> => c != null && typeof c === "object")

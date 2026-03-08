@@ -58,17 +58,21 @@ Page URL: ${pageUrl}
 
 For each section (horizontal band of the page), identify:
 - sectionLabel: a descriptive name (e.g., "Navigation Bar", "Hero Banner", "Feature Cards", "Testimonials", "Footer")
+- yStartPercent: where the section starts as a percentage of total page height (0 = top, 100 = bottom)
+- yEndPercent: where the section ends as a percentage of total page height
 - components: an array of UI components within that section, each with:
   - type: one of: hero, navigation, sub_navigation, cta, form, card_grid, testimonial, logo_grid, stats, accordion, tabs, footer, sidebar, breadcrumb, search, video_embed, image_gallery, pricing_table, feature_grid, team_grid, timeline, faq, newsletter_signup, social_links, banner, content_block, other
   - styleDescription: brief visual description (colors, layout, typography, key text)
   - complexity: "simple", "moderate", or "complex"
 
-Return a JSON array of sections in top-to-bottom order. Each section has sectionLabel and components array.
+The yStartPercent and yEndPercent values must cover the full page: the first section starts near 0 and the last section ends near 100. Sections should not overlap and should be contiguous.
+
+Return a JSON array of sections in top-to-bottom order.
 
 Example:
 [
-  {"sectionLabel": "Navigation", "components": [{"type": "navigation", "styleDescription": "Dark header, logo left, links right", "complexity": "moderate"}]},
-  {"sectionLabel": "Hero", "components": [{"type": "hero", "styleDescription": "Full-width banner with headline and CTA", "complexity": "complex"}]}
+  {"sectionLabel": "Navigation", "yStartPercent": 0, "yEndPercent": 5, "components": [{"type": "navigation", "styleDescription": "Dark header, logo left, links right", "complexity": "moderate"}]},
+  {"sectionLabel": "Hero", "yStartPercent": 5, "yEndPercent": 25, "components": [{"type": "hero", "styleDescription": "Full-width banner with headline and CTA", "complexity": "complex"}]}
 ]`;
 
   const response = await callClaudeWithImage(prompt, screenshotUrl, {

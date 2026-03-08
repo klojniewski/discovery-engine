@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Scan, ExternalLink } from "lucide-react";
@@ -34,12 +34,41 @@ const COMPLEXITY_VARIANT: Record<string, "destructive" | "default" | "secondary"
   simple: "secondary",
 };
 
+const SECTION_COLORS = [
+  "rgba(59,130,246,0.18)",   // blue
+  "rgba(16,185,129,0.18)",   // green
+  "rgba(245,158,11,0.18)",   // amber
+  "rgba(168,85,247,0.18)",   // purple
+  "rgba(239,68,68,0.18)",    // red
+  "rgba(6,182,212,0.18)",    // cyan
+  "rgba(236,72,153,0.18)",   // pink
+  "rgba(132,204,22,0.18)",   // lime
+  "rgba(251,146,60,0.18)",   // orange
+  "rgba(99,102,241,0.18)",   // indigo
+];
+
+const SECTION_BORDER_COLORS = [
+  "rgba(59,130,246,0.7)",
+  "rgba(16,185,129,0.7)",
+  "rgba(245,158,11,0.7)",
+  "rgba(168,85,247,0.7)",
+  "rgba(239,68,68,0.7)",
+  "rgba(6,182,212,0.7)",
+  "rgba(236,72,153,0.7)",
+  "rgba(132,204,22,0.7)",
+  "rgba(251,146,60,0.7)",
+  "rgba(99,102,241,0.7)",
+];
+
 export function PageDetail({ page }: PageDetailProps) {
   const [sections, setSections] = useState<PageSection[] | null>(
     page.detectedSections
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [hoveredSection, setHoveredSection] = useState<number | null>(null);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const screenshotRef = useRef<HTMLDivElement>(null);
 
   function handleDetect() {
     setError(null);
@@ -59,6 +88,8 @@ export function PageDetail({ page }: PageDetailProps) {
     (sum, s) => sum + s.components.length,
     0
   ) ?? 0;
+
+  const hasBounds = sections?.some((s) => s.yEndPercent > 0) ?? false;
 
   return (
     <div className="space-y-6">
@@ -98,14 +129,59 @@ export function PageDetail({ page }: PageDetailProps) {
         </div>
       </div>
 
-      {/* Screenshot */}
+      {/* Screenshot with overlay */}
       {page.screenshotUrl ? (
-        <div className="rounded-lg border overflow-hidden bg-muted">
-          <img
-            src={page.screenshotUrl}
-            alt={`Screenshot of ${page.url}`}
-            className="w-full"
-          />
+        <div>
+          {sections && hasBounds && (
+            <div className="flex items-center justify-end mb-2">
+              <button
+                onClick={() => setShowOverlay(!showOverlay)}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+              >
+                <span
+                  className={`inline-block w-3 h-3 rounded border ${
+                    showOverlay ? "bg-primary border-primary" : "border-muted-foreground"
+                  }`}
+                />
+                Show section overlays
+              </button>
+            </div>
+          )}
+          <div ref={screenshotRef} className="rounded-lg border overflow-hidden bg-muted relative">
+            <img
+              src={page.screenshotUrl}
+              alt={`Screenshot of ${page.url}`}
+              className="w-full block"
+            />
+            {sections && hasBounds && showOverlay && sections.map((section, idx) => (
+              <div
+                key={idx}
+                className="absolute left-0 right-0 transition-opacity duration-150"
+                style={{
+                  top: `${section.yStartPercent}%`,
+                  height: `${section.yEndPercent - section.yStartPercent}%`,
+                  backgroundColor: hoveredSection === idx
+                    ? SECTION_COLORS[idx % SECTION_COLORS.length].replace("0.18", "0.35")
+                    : SECTION_COLORS[idx % SECTION_COLORS.length],
+                  borderTop: `2px solid ${SECTION_BORDER_COLORS[idx % SECTION_BORDER_COLORS.length]}`,
+                  borderBottom: `2px solid ${SECTION_BORDER_COLORS[idx % SECTION_BORDER_COLORS.length]}`,
+                  opacity: hoveredSection === null || hoveredSection === idx ? 1 : 0.3,
+                }}
+                onMouseEnter={() => setHoveredSection(idx)}
+                onMouseLeave={() => setHoveredSection(null)}
+              >
+                <span
+                  className="absolute left-2 top-1 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm pointer-events-none"
+                  style={{
+                    backgroundColor: SECTION_BORDER_COLORS[idx % SECTION_BORDER_COLORS.length],
+                    color: "white",
+                  }}
+                >
+                  {idx + 1} {section.sectionLabel}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
@@ -147,9 +223,23 @@ export function PageDetail({ page }: PageDetailProps) {
           </h3>
           <div className="space-y-3">
             {sections.map((section, idx) => (
-              <div key={idx} className="rounded-lg border p-4 space-y-3">
+              <div
+                key={idx}
+                className={`rounded-lg border p-4 space-y-3 transition-colors duration-150 cursor-pointer ${
+                  hoveredSection === idx ? "border-primary bg-primary/5" : ""
+                }`}
+                onMouseEnter={() => setHoveredSection(idx)}
+                onMouseLeave={() => setHoveredSection(null)}
+              >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                  <span
+                    className="text-xs font-bold text-white rounded px-1.5 py-0.5"
+                    style={{
+                      backgroundColor: hasBounds
+                        ? SECTION_BORDER_COLORS[idx % SECTION_BORDER_COLORS.length]
+                        : undefined,
+                    }}
+                  >
                     {idx + 1}
                   </span>
                   <h4 className="font-medium">{section.sectionLabel}</h4>
