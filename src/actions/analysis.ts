@@ -333,7 +333,7 @@ export async function runPageDetection(pageId: string) {
   if (!page) throw new Error("Page not found");
   if (!page.screenshotUrl) throw new Error("Page has no screenshot");
 
-  const sections = await detectPageSections(page.screenshotUrl, page.url);
+  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml);
 
   await db
     .update(pages)

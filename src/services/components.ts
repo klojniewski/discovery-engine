@@ -1,6 +1,7 @@
 import { callClaudeWithImage } from "./anthropic";
 import type { PageSection } from "@/types/page-sections";
 import { parsePageSections } from "@/types/page-sections";
+import { extractHtmlSections, formatHtmlSectionsForPrompt } from "./html-sections";
 
 interface DetectedComponent {
   type: string;
@@ -50,16 +51,27 @@ Return a JSON array of components found.`;
 
 export async function detectPageSections(
   screenshotUrl: string,
-  pageUrl: string
+  pageUrl: string,
+  rawHtml?: string | null
 ): Promise<PageSection[]> {
-  // First pass: get image dimensions
-  const { text: response, meta } = await callClaudeWithImage(
-    buildSectionPrompt(pageUrl),
+  // Extract HTML structure if available
+  const htmlSections = rawHtml ? extractHtmlSections(rawHtml) : [];
+  const htmlContext = htmlSections.length > 0
+    ? formatHtmlSectionsForPrompt(htmlSections)
+    : "";
+
+  // Pre-fetch image dimensions so the prompt can tell the AI the exact height
+  const sharp = (await import("sharp")).default;
+  const imgRes = await fetch(screenshotUrl);
+  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+  const imgMeta = await sharp(imgBuffer).metadata();
+  const imageHeight = imgMeta.height ?? 0;
+
+  const { text: response } = await callClaudeWithImage(
+    buildSectionPrompt(pageUrl, htmlContext, imageHeight),
     screenshotUrl,
     { model: "claude-sonnet-4-6", returnMeta: true }
   );
-
-  const imageHeight = meta.height;
 
   try {
     const cleaned = response.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
@@ -94,25 +106,35 @@ export async function detectPageSections(
   }
 }
 
-function buildSectionPrompt(pageUrl: string): string {
+function buildSectionPrompt(pageUrl: string, htmlContext: string, imageHeight: number): string {
+  const htmlBlock = htmlContext
+    ? `\n\n${htmlContext}\n\nUse the HTML structure above to guide your section boundaries. Each visual section on the screenshot should correspond to one or more of these HTML elements. This helps you identify exact boundaries between sections.`
+    : "";
+
+  const heightInfo = imageHeight > 0
+    ? `\n\nThe image is ${imageHeight}px tall. Your yEndPx values must not exceed ${imageHeight}.`
+    : "";
+
   return `Analyze this full-page screenshot and split it into horizontal sections from top to bottom.
 
-Page URL: ${pageUrl}
+Page URL: ${pageUrl}${htmlBlock}${heightInfo}
 
-For each section (horizontal band of the page), identify:
+For each section (horizontal band of the page), provide:
 - sectionLabel: a descriptive name (e.g., "Navigation Bar", "Hero Banner", "Feature Cards", "Testimonials", "Footer")
-- yStartPx: the Y pixel coordinate where this section starts (top edge)
-- yEndPx: the Y pixel coordinate where this section ends (bottom edge)
+- yStartPx: the Y pixel coordinate where this section starts (top edge of its visual content)
+- yEndPx: the Y pixel coordinate where this section ends (bottom edge of its visual content)
 - components: an array of UI components within that section, each with:
   - type: one of: hero, navigation, sub_navigation, cta, form, card_grid, testimonial, logo_grid, stats, accordion, tabs, footer, sidebar, breadcrumb, search, video_embed, image_gallery, pricing_table, feature_grid, team_grid, timeline, faq, newsletter_signup, social_links, banner, content_block, other
   - styleDescription: brief visual description (colors, layout, typography, key text)
   - complexity: "simple", "moderate", or "complex"
 
-IMPORTANT for yStartPx/yEndPx:
-- Use pixel coordinates relative to the top of the image (0 = top edge).
-- Be precise: draw tight boundaries around each section. The yStartPx of a section should be exactly where its visual content begins, and yEndPx where it ends.
-- Sections should be contiguous with no gaps: yEndPx of one section equals yStartPx of the next.
-- The first section starts at 0 (or very close). The last section ends at the bottom of the image.
+CRITICAL rules for yStartPx/yEndPx:
+- Coordinates are pixels from the top of the image (0 = very top).
+- Be PRECISE: each boundary should align exactly with the visual edge where one section's background/content ends and the next begins.
+- Look for visual cues: background color changes, horizontal dividers, spacing gaps between content blocks.
+- Sections must be contiguous: yEndPx of section N = yStartPx of section N+1.
+- First section starts at 0. Last section ends at the image bottom.
+- Do NOT split a single visual block (like a hero with heading + subtext + CTA) into multiple sections.
 
 Return a JSON array of sections in top-to-bottom order.
 
