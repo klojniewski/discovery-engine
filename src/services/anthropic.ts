@@ -31,11 +31,26 @@ export async function callClaude(
   return textBlock?.text ?? "";
 }
 
+export interface ImageMeta {
+  width: number;
+  height: number;
+}
+
 export async function callClaudeWithImage(
   prompt: string,
   imageUrl: string,
-  options: ClaudeOptions = {}
-): Promise<string> {
+  options: ClaudeOptions & { returnMeta: true }
+): Promise<{ text: string; meta: ImageMeta }>;
+export async function callClaudeWithImage(
+  prompt: string,
+  imageUrl: string,
+  options?: ClaudeOptions & { returnMeta?: false }
+): Promise<string>;
+export async function callClaudeWithImage(
+  prompt: string,
+  imageUrl: string,
+  options: ClaudeOptions & { returnMeta?: boolean } = {}
+): Promise<string | { text: string; meta: ImageMeta }> {
   const {
     model = "claude-sonnet-4-6",
     maxTokens = 4096,
@@ -60,6 +75,9 @@ export async function callClaudeWithImage(
   let buffer: Buffer;
   let mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
 
+  let finalWidth = meta.width ?? 0;
+  let finalHeight = meta.height ?? 0;
+
   if (needsResize) {
     console.log(
       `Resizing image from ${meta.width}x${meta.height} to fit ${MAX_DIM}px limit`
@@ -69,6 +87,9 @@ export async function callClaudeWithImage(
       .png()
       .toBuffer();
     mediaType = "image/png";
+    const resizedMeta = await sharp(buffer).metadata();
+    finalWidth = resizedMeta.width ?? 0;
+    finalHeight = resizedMeta.height ?? 0;
   } else {
     buffer = rawBuffer;
     const validTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
@@ -96,5 +117,10 @@ export async function callClaudeWithImage(
   });
 
   const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text ?? "";
+  const text = textBlock?.text ?? "";
+
+  if (options.returnMeta) {
+    return { text, meta: { width: finalWidth, height: finalHeight } };
+  }
+  return text;
 }
