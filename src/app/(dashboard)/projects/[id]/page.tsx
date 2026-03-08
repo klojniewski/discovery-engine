@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { getProject } from "@/actions/projects";
 import { getProjectCosts } from "@/actions/costs";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign, Cpu, ArrowRight } from "lucide-react";
+import { DollarSign, Cpu, ArrowRight, Pencil } from "lucide-react";
 
 export default async function ProjectOverviewPage({
   params,
@@ -34,9 +35,18 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">{project.clientName}</h2>
-        <p className="text-muted-foreground">{project.websiteUrl}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold">{project.clientName}</h2>
+          <p className="text-muted-foreground">{project.websiteUrl}</p>
+        </div>
+        <Link
+          href={`/projects/${id}/edit`}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Edit
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-4 max-w-lg">

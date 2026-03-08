@@ -48,6 +48,49 @@ export async function createProject(formData: FormData) {
   redirect(`/projects/${project.id}`);
 }
 
+export async function updateProject(projectId: string, formData: FormData) {
+  const clientName = formData.get("clientName") as string;
+  const clientEmail = formData.get("clientEmail") as string;
+  const pageLimit = parseInt(formData.get("pageLimit") as string) || 500;
+  const notes = (formData.get("notes") as string) || undefined;
+  const excludePaths = (formData.get("excludePaths") as string) || undefined;
+
+  if (!clientName || !clientEmail) {
+    return { error: "Client name and email are required" };
+  }
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) return { error: "Project not found" };
+
+  const parsedExcludePaths = excludePaths
+    ? excludePaths
+        .split("\n")
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : undefined;
+
+  await db
+    .update(projects)
+    .set({
+      clientName,
+      clientEmail,
+      settings: {
+        ...(project.settings as Record<string, unknown>),
+        pageLimit,
+        notes,
+        excludePaths: parsedExcludePaths,
+      },
+    })
+    .where(eq(projects.id, projectId));
+
+  redirect(`/projects/${projectId}`);
+}
+
 export async function startProjectCrawl(projectId: string) {
   const [project] = await db
     .select()
