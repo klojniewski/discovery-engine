@@ -2,10 +2,11 @@
 
 import { db } from "@/db";
 import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
 import { scorePages } from "@/services/scoring";
 import { detectComponents, detectPageSections } from "@/services/components";
+import { sectionTypes as sectionTypesTable } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 
 export async function getAnalysisStatus(projectId: string) {
@@ -333,7 +334,13 @@ export async function runPageDetection(pageId: string) {
   if (!page) throw new Error("Page not found");
   if (!page.screenshotUrl) throw new Error("Page has no screenshot");
 
-  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml);
+  // Fetch section types for taxonomy-driven detection
+  const allSectionTypes = await db
+    .select({ slug: sectionTypesTable.slug, category: sectionTypesTable.category, description: sectionTypesTable.description })
+    .from(sectionTypesTable)
+    .orderBy(asc(sectionTypesTable.sortOrder));
+
+  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml, allSectionTypes);
 
   await db
     .update(pages)

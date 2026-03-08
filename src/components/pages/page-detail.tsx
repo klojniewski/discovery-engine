@@ -156,7 +156,10 @@ export function PageDetail({ page, sectionTypes }: PageDetailProps) {
           </h3>
           <div className="space-y-3">
             {sections.map((section, idx) => {
-              const matched = matchSectionType(section.sectionLabel, sectionTypes);
+              // Direct lookup by sectionType slug, fallback to fuzzy match for legacy data
+              const matched = section.sectionType
+                ? sectionTypes.find((st) => st.slug === section.sectionType) ?? null
+                : matchSectionType(section.sectionLabel, sectionTypes);
               return (
                 <div
                   key={idx}
@@ -180,9 +183,9 @@ export function PageDetail({ page, sectionTypes }: PageDetailProps) {
                           {idx + 1}
                         </span>
                         <h4 className="font-medium">{section.sectionLabel}</h4>
-                        {matched && (
+                        {(section.sectionType || matched) && (
                           <Badge variant="outline" className="text-[10px]">
-                            {matched.slug}
+                            {section.sectionType ?? matched?.slug}
                           </Badge>
                         )}
                         <span className="text-xs text-muted-foreground">

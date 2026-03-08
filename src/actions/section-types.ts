@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { sectionTypes } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function getSectionTypes() {
@@ -51,7 +51,7 @@ export async function createSectionType(data: {
   const maxOrder = await db
     .select({ sortOrder: sectionTypes.sortOrder })
     .from(sectionTypes)
-    .orderBy(asc(sectionTypes.sortOrder))
+    .orderBy(desc(sectionTypes.sortOrder))
     .limit(1);
 
   const [created] = await db
