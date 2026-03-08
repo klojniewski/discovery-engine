@@ -807,11 +807,11 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 - [ ] Internal team playbook: how to create a project, trigger crawl, review analysis, publish report
 
 ### Acceptance Criteria
-- [ ] `components` and `component_pages` tables dropped, no code references remain
-- [ ] API cost tracked per call, summed per project (including retries/re-runs)
-- [ ] Cost breakdown visible on project overview page
+- [x] `components` and `component_pages` tables dropped, no code references remain
+- [x] API cost tracked per call, summed per project (including retries/re-runs)
+- [x] Cost breakdown visible on project overview page
 - [ ] Full E2E flow completes without errors for pagepro.co in production
-- [ ] Error states handled gracefully with user-facing messages
+- [x] Error states handled gracefully with user-facing messages
 - [ ] Tested on 3+ different websites successfully
 - [ ] App accessible at production URL with SSL
 - [ ] Sentry captures errors
@@ -845,7 +845,7 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 | 2 | Firecrawl crawls pagepro.co, pages stored, 3-tab workflow (Crawl/Scrape/Analyse) | **Done** |
 | 3 | AI analysis: templates, scoring, sections. Analysis dashboard. | **Done** |
 | 4 | 5-section report (data), preview, notes, publish, share link | **Done** |
-| 5 | Cleanup, cost tracking, multi-site testing, deployment | In progress (5.1, 5.2 done) |
+| 5 | Cleanup, cost tracking, multi-site testing, deployment | In progress (5.1-5.3 done) |
 
 **Progress: ~85% complete** (Phases 1-4 done, Phase 5 remaining)
 
