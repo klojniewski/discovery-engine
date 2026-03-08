@@ -163,6 +163,21 @@ export async function pollCrawlStatus(projectId: string) {
   };
 }
 
+function normalizeUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    u.search = "";
+    u.hash = "";
+    // Remove trailing slash except for root path
+    if (u.pathname !== "/" && u.pathname.endsWith("/")) {
+      u.pathname = u.pathname.slice(0, -1);
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 async function storeCrawlResults(projectId: string, jobId: string) {
   const crawlPages = await getAllCrawlResults(jobId);
 
@@ -178,7 +193,7 @@ async function storeCrawlResults(projectId: string, jobId: string) {
 
       return {
         projectId,
-        url: p.metadata!.sourceURL!,
+        url: normalizeUrl(p.metadata!.sourceURL!),
         title: (Array.isArray(p.metadata?.title) ? p.metadata.title[0] : p.metadata?.title) ?? null,
         metaDescription: (Array.isArray(p.metadata?.description) ? p.metadata.description[0] : p.metadata?.description) ?? null,
         h1: null as string | null,
@@ -194,10 +209,20 @@ async function storeCrawlResults(projectId: string, jobId: string) {
       };
     });
 
-  if (pageRecords.length > 0) {
+  // Deduplicate by normalized URL — keep the version with the most content
+  const deduped = new Map<string, (typeof pageRecords)[number]>();
+  for (const record of pageRecords) {
+    const existing = deduped.get(record.url);
+    if (!existing || (record.wordCount ?? 0) > (existing.wordCount ?? 0)) {
+      deduped.set(record.url, record);
+    }
+  }
+  const uniqueRecords = Array.from(deduped.values());
+
+  if (uniqueRecords.length > 0) {
     // Insert in batches of 50
-    for (let i = 0; i < pageRecords.length; i += 50) {
-      const batch = pageRecords.slice(i, i + 50);
+    for (let i = 0; i < uniqueRecords.length; i += 50) {
+      const batch = uniqueRecords.slice(i, i + 50);
       await db.insert(pages).values(batch);
     }
   }
