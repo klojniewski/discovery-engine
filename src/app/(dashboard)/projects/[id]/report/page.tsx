@@ -10,7 +10,7 @@ import { ExecutiveSummary } from "@/components/report/executive-summary";
 import { TemplateInventory } from "@/components/report/template-inventory";
 import { SiteArchitecture } from "@/components/report/site-architecture";
 import { ContentAudit } from "@/components/report/content-audit";
-import { ComponentInventoryReport } from "@/components/report/component-inventory-report";
+import { SectionInventoryReport } from "@/components/report/section-inventory-report";
 import { SectionNotes } from "@/components/report/section-notes";
 
 export default async function ReportPage({
@@ -117,17 +117,17 @@ export default async function ReportPage({
               );
             })()}
 
-            {/* Component Inventory */}
+            {/* Section Inventory */}
             {(() => {
-              const section = getSection("component_inventory");
+              const section = getSection("section_inventory");
               if (!section) return null;
               const content = section.content as {
-                components: ComponentData[];
+                sections: SectionReportData[];
               };
               return (
                 <div>
-                  <ComponentInventoryReport
-                    components={content.components}
+                  <SectionInventoryReport
+                    sections={content.sections}
                   />
                   <SectionNotes
                     sectionId={section.id}
@@ -184,7 +184,7 @@ type ExecutiveSummaryStats = {
   totalPages: number;
   scrapedPages: number;
   templateCount: number;
-  componentCount: number;
+  sectionTypeCount: number;
   totalWords: number;
   avgWordsPerPage: number;
 };
@@ -215,13 +215,12 @@ type SiteArchitectureData = {
   children: SiteArchitectureData[];
 };
 
-type ComponentData = {
-  type: string;
+type SectionReportData = {
+  slug: string;
+  name: string;
+  category: string;
+  svgContent: string | null;
   count: number;
-  complexity: string | null;
-  position: string | null;
-  styleDescription: string | null;
-  screenshotUrl: string | null;
 };
 
 type ContentAuditData = {

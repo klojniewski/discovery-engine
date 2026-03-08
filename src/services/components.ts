@@ -3,56 +3,11 @@ import type { PageSection } from "@/types/page-sections";
 import { parsePageSections } from "@/types/page-sections";
 import { extractHtmlSections, formatHtmlSectionsForPrompt } from "./html-sections";
 
-interface DetectedComponent {
-  type: string;
-  styleDescription: string;
-  position: string;
-  complexity: "simple" | "moderate" | "complex";
-}
-
-export async function detectComponents(
-  screenshotUrl: string,
-  pageUrl: string
-): Promise<DetectedComponent[]> {
-  const prompt = `Analyze this webpage screenshot and identify all distinct UI components/sections.
-
-Page URL: ${pageUrl}
-
-For each component, provide:
-- type: one of: hero, navigation, sub_navigation, cta, form, card_grid, testimonial, logo_grid, stats, accordion, tabs, footer, sidebar, breadcrumb, search, video_embed, image_gallery, pricing_table, feature_grid, team_grid, timeline, faq, newsletter_signup, social_links, other
-- styleDescription: brief description of visual style (colors, layout, typography)
-- position: one of: header, above_fold, mid_page, below_fold, footer
-- complexity: "simple", "moderate", or "complex"
-
-Return a JSON array of components found.`;
-
-  const response = await callClaudeWithImage(prompt, screenshotUrl, {
-    model: "claude-sonnet-4-6",
-  });
-
-  try {
-    const cleaned = response.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
-    const parsed = JSON.parse(cleaned);
-    return (Array.isArray(parsed) ? parsed : []).map(
-      (item: Record<string, string>) => ({
-        type: item.type ?? "other",
-        styleDescription: item.styleDescription ?? "",
-        position: item.position ?? "mid_page",
-        complexity: (["simple", "moderate", "complex"].includes(item.complexity)
-          ? item.complexity
-          : "moderate") as "simple" | "moderate" | "complex",
-      })
-    );
-  } catch {
-    console.error("Failed to parse component detection response:", response);
-    return [];
-  }
-}
-
 export async function detectPageSections(
   screenshotUrl: string,
   pageUrl: string,
-  rawHtml?: string | null
+  rawHtml?: string | null,
+  sectionTypes?: SectionTypeForPrompt[]
 ): Promise<PageSection[]> {
   // Extract HTML structure if available
   const htmlSections = rawHtml ? extractHtmlSections(rawHtml) : [];
@@ -60,18 +15,18 @@ export async function detectPageSections(
     ? formatHtmlSectionsForPrompt(htmlSections)
     : "";
 
-  // Pre-fetch image dimensions so the prompt can tell the AI the exact height
-  const sharp = (await import("sharp")).default;
-  const imgRes = await fetch(screenshotUrl);
-  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-  const imgMeta = await sharp(imgBuffer).metadata();
-  const imageHeight = imgMeta.height ?? 0;
+  const validSlugs = sectionTypes?.map((st) => st.slug);
 
-  const { text: response } = await callClaudeWithImage(
-    buildSectionPrompt(pageUrl, htmlContext, imageHeight),
+  // callClaudeWithImage handles resizing (max 7900px) and returns actual dimensions sent
+  // We use a placeholder height in the prompt, then fix it with the real meta below
+  const { text: response, meta } = await callClaudeWithImage(
+    buildSectionPrompt(pageUrl, htmlContext, 0, sectionTypes),
     screenshotUrl,
     { model: "claude-sonnet-4-6", returnMeta: true }
   );
+
+  // Use the actual image height (post-resize) for coordinate conversion
+  const imageHeight = meta.height;
 
   try {
     const cleaned = response.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
@@ -91,7 +46,7 @@ export async function detectPageSections(
       }
     }
 
-    const sections = parsePageSections(parsed);
+    const sections = parsePageSections(parsed, validSlugs);
 
     if (sections.length === 0) {
       throw new Error("AI returned no valid sections");
@@ -101,12 +56,41 @@ export async function detectPageSections(
   } catch (err) {
     console.error("Failed to parse page sections response:", response);
     throw new Error(
-      `Component detection failed: ${err instanceof Error ? err.message : "could not parse AI response"}`
+      `Section detection failed: ${err instanceof Error ? err.message : "could not parse AI response"}`
     );
   }
 }
 
-function buildSectionPrompt(pageUrl: string, htmlContext: string, imageHeight: number): string {
+interface SectionTypeForPrompt {
+  slug: string;
+  category: string;
+  description: string | null;
+}
+
+function formatTaxonomyForPrompt(sectionTypes: SectionTypeForPrompt[]): string {
+  const grouped = new Map<string, SectionTypeForPrompt[]>();
+  for (const st of sectionTypes) {
+    const group = grouped.get(st.category) ?? [];
+    group.push(st);
+    grouped.set(st.category, group);
+  }
+
+  const lines: string[] = [];
+  for (const [category, types] of grouped) {
+    const entries = types.map((t) =>
+      t.description ? `${t.slug} — ${t.description}` : t.slug
+    );
+    lines.push(`${category}: ${entries.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
+function buildSectionPrompt(
+  pageUrl: string,
+  htmlContext: string,
+  imageHeight: number,
+  sectionTypes?: SectionTypeForPrompt[]
+): string {
   const htmlBlock = htmlContext
     ? `\n\n${htmlContext}\n\nUse the HTML structure above to guide your section boundaries. Each visual section on the screenshot should correspond to one or more of these HTML elements. This helps you identify exact boundaries between sections.`
     : "";
@@ -115,16 +99,21 @@ function buildSectionPrompt(pageUrl: string, htmlContext: string, imageHeight: n
     ? `\n\nThe image is ${imageHeight}px tall. Your yEndPx values must not exceed ${imageHeight}.`
     : "";
 
+  const taxonomyBlock = sectionTypes && sectionTypes.length > 0
+    ? `\n\nSECTION TYPE TAXONOMY — use these slugs for the sectionType field:\n\n${formatTaxonomyForPrompt(sectionTypes)}\n\nIf a section does not match any slug above, set sectionType to null.`
+    : "";
+
   return `Analyze this full-page screenshot and split it into horizontal sections from top to bottom.
 
-Page URL: ${pageUrl}${htmlBlock}${heightInfo}
+Page URL: ${pageUrl}${htmlBlock}${heightInfo}${taxonomyBlock}
 
 For each section (horizontal band of the page), provide:
-- sectionLabel: a descriptive name (e.g., "Navigation Bar", "Hero Banner", "Feature Cards", "Testimonials", "Footer")
+- sectionLabel: a short human-readable name (e.g., "Navigation Bar", "Hero Banner", "Feature Cards")
+- sectionType: the matching slug from the taxonomy above, or null if no match
 - yStartPx: the Y pixel coordinate where this section starts (top edge of its visual content)
 - yEndPx: the Y pixel coordinate where this section ends (bottom edge of its visual content)
 - components: an array of UI components within that section, each with:
-  - type: one of: hero, navigation, sub_navigation, cta, form, card_grid, testimonial, logo_grid, stats, accordion, tabs, footer, sidebar, breadcrumb, search, video_embed, image_gallery, pricing_table, feature_grid, team_grid, timeline, faq, newsletter_signup, social_links, banner, content_block, other
+  - type: the taxonomy slug that best describes this component (e.g., "hero", "navigation", "testimonials"), or "other"
   - styleDescription: brief visual description (colors, layout, typography, key text)
   - complexity: "simple", "moderate", or "complex"
 
@@ -140,7 +129,8 @@ Return a JSON array of sections in top-to-bottom order.
 
 Example:
 [
-  {"sectionLabel": "Navigation", "yStartPx": 0, "yEndPx": 80, "components": [{"type": "navigation", "styleDescription": "Dark header, logo left, links right", "complexity": "moderate"}]},
-  {"sectionLabel": "Hero", "yStartPx": 80, "yEndPx": 650, "components": [{"type": "hero", "styleDescription": "Full-width banner with headline and CTA", "complexity": "complex"}]}
+  {"sectionLabel": "Navigation", "sectionType": "navigation", "yStartPx": 0, "yEndPx": 80, "components": [{"type": "navigation", "styleDescription": "Dark header, logo left, links right", "complexity": "moderate"}]},
+  {"sectionLabel": "Hero Banner", "sectionType": "hero-split", "yStartPx": 80, "yEndPx": 650, "components": [{"type": "hero", "styleDescription": "Text left, image right with CTA button", "complexity": "complex"}]},
+  {"sectionLabel": "Custom Widget", "sectionType": null, "yStartPx": 650, "yEndPx": 900, "components": [{"type": "other", "styleDescription": "Interactive calculator tool", "complexity": "complex"}]}
 ]`;
 }

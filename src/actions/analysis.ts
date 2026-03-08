@@ -1,11 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { projects, pages, templates } from "@/db/schema";
+import { eq, and, asc } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
 import { scorePages } from "@/services/scoring";
-import { detectComponents, detectPageSections } from "@/services/components";
+import { detectPageSections } from "@/services/components";
+import { sectionTypes as sectionTypesTable } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 
 export async function getAnalysisStatus(projectId: string) {
@@ -187,66 +188,80 @@ export async function runContentScoring(projectId: string) {
   return { scored };
 }
 
-export async function runComponentDetection(projectId: string) {
-  await updateStep(projectId, "components");
+export async function runSectionDetection(projectId: string) {
+  await updateStep(projectId, "sections");
 
-  // Get templates with representative pages that have screenshots
-  const projectTemplates = await db
+  // Fetch section types for taxonomy-driven detection
+  const allSectionTypes = await db
+    .select({ slug: sectionTypesTable.slug, category: sectionTypesTable.category, description: sectionTypesTable.description })
+    .from(sectionTypesTable)
+    .orderBy(asc(sectionTypesTable.sortOrder));
+
+  // Get all non-excluded pages with screenshots that don't already have detectedSections
+  const projectPages = await db
     .select()
-    .from(templates)
-    .where(eq(templates.projectId, projectId));
+    .from(pages)
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
 
-  // Clear existing components
-  await db.delete(components).where(eq(components.projectId, projectId));
+  const pagesToDetect = projectPages.filter(
+    (p) => p.screenshotUrl && !p.detectedSections
+  );
 
   let detected = 0;
+  for (const page of pagesToDetect) {
+    await updateStep(projectId, "sections", {
+      completed: detected,
+      total: pagesToDetect.length,
+    });
 
-  for (const template of projectTemplates) {
-    if (!template.representativePageId) continue;
+    try {
+      const sections = await detectPageSections(
+        page.screenshotUrl!,
+        page.url,
+        page.rawHtml,
+        allSectionTypes
+      );
 
-    const [repPage] = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.id, template.representativePageId))
-      .limit(1);
-
-    if (!repPage?.screenshotUrl) continue;
-
-    const detectedComponents = await detectComponents(
-      repPage.screenshotUrl,
-      repPage.url
-    );
-
-    for (const comp of detectedComponents) {
-      const [component] = await db
-        .insert(components)
-        .values({
-          projectId,
-          type: comp.type,
-          styleDescription: comp.styleDescription,
-          position: comp.position,
-          complexity: comp.complexity,
-          frequency: 1,
-        })
-        .returning();
-
-      await db.insert(componentPages).values({
-        componentId: component.id,
-        pageId: repPage.id,
-      });
-
-      detected++;
+      await db
+        .update(pages)
+        .set({ detectedSections: sections })
+        .where(eq(pages.id, page.id));
+    } catch (err) {
+      console.error(`Section detection failed for page ${page.url}:`, err);
+      // Continue with other pages — don't fail the whole analysis
     }
+
+    detected++;
   }
+
+  await updateStep(projectId, "sections", {
+    completed: pagesToDetect.length,
+    total: pagesToDetect.length,
+  });
 
   return { detected };
 }
 
 export async function runFullAnalysis(projectId: string) {
   try {
+    // Clear any previous error and set status
+    const [currentProject] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
     await db
       .update(projects)
-      .set({ status: "analyzing" })
+      .set({
+        status: "analyzing",
+        settings: {
+          ...(currentProject.settings as Record<string, unknown>),
+          analysisStep: "classification",
+          analysisError: undefined,
+          analysisProgress: undefined,
+        },
+      })
       .where(eq(projects.id, projectId));
 
     // Step 1: Classification
@@ -255,8 +270,8 @@ export async function runFullAnalysis(projectId: string) {
     // Step 2: Content scoring
     const scoringResult = await runContentScoring(projectId);
 
-    // Step 3: Component detection
-    const componentResult = await runComponentDetection(projectId);
+    // Step 3: Section detection across all pages
+    const sectionResult = await runSectionDetection(projectId);
 
     // Done
     await db
@@ -282,7 +297,7 @@ export async function runFullAnalysis(projectId: string) {
     return {
       classification: classificationResult,
       scoring: scoringResult,
-      components: componentResult,
+      sections: sectionResult,
     };
   } catch (err) {
     const [project] = await db
@@ -333,7 +348,13 @@ export async function runPageDetection(pageId: string) {
   if (!page) throw new Error("Page not found");
   if (!page.screenshotUrl) throw new Error("Page has no screenshot");
 
-  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml);
+  // Fetch section types for taxonomy-driven detection
+  const allSectionTypes = await db
+    .select({ slug: sectionTypesTable.slug, category: sectionTypesTable.category, description: sectionTypesTable.description })
+    .from(sectionTypesTable)
+    .orderBy(asc(sectionTypesTable.sortOrder));
+
+  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml, allSectionTypes);
 
   await db
     .update(pages)

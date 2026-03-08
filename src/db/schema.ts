@@ -100,6 +100,18 @@ export const componentPages = pgTable("component_pages", {
     .references(() => pages.id, { onDelete: "cascade" }),
 });
 
+export const sectionTypes = pgTable("section_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  description: text("description"),
+  svgContent: text("svg_content"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const reportSections = pgTable("report_sections", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
