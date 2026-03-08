@@ -8,7 +8,6 @@ import { runFullAnalysis, getAnalysisStatus } from "@/actions/analysis";
 const STEPS = [
   { key: "classification", label: "Classifying Templates" },
   { key: "scoring", label: "Scoring Content" },
-  { key: "components", label: "Detecting Components" },
   { key: "sections", label: "Detecting Sections" },
   { key: "completed", label: "Analysis Complete" },
 ];
@@ -87,7 +86,7 @@ export function AnalysisRunner({
           <p className="text-muted-foreground">
             {status === "analysis_failed"
               ? "Analysis failed. You can retry."
-              : "Ready to analyze. This will classify templates, score content, and detect components."}
+              : "Ready to analyze. This will classify templates, score content, and detect sections."}
           </p>
           <Button onClick={handleRun} disabled={isPending}>
             {isPending ? (

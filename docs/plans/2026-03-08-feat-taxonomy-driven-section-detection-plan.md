@@ -2,7 +2,7 @@
 title: "feat: Taxonomy-Driven Section Detection"
 type: feat
 date: 2026-03-08
-status: draft
+status: completed
 ---
 
 # Taxonomy-Driven Section Detection
@@ -141,7 +141,7 @@ Existing `detectedSections` JSONB rows lack `sectionType`. Strategy:
   - Use `section.sectionType` for direct SVG lookup when available
   - Fall back to `matchSectionType(section.sectionLabel)` when `sectionType` is null
 - [x] Fix `createSectionType` sort order bug: change `asc` to `desc` in max order query
-- [ ] Test: run detection on a page, verify `sectionType` slugs are returned and SVGs match
+- [x] Test: run detection on a page, verify `sectionType` slugs are returned and SVGs match
 
 #### Phase 2: Bulk Detection + Analysis Page
 
@@ -161,21 +161,21 @@ Existing `detectedSections` JSONB rows lack `sectionType`. Strategy:
   - Aggregate by `sectionType` slug: count occurrences, collect page IDs
   - Fetch section types from DB for SVG content
   - Render `SectionInventory` component between ContentTiers and ComponentInventory
-- [ ] Test: run full analysis, verify section inventory populates on analysis page
+- [x] Test: run full analysis, verify section inventory populates on analysis page
 
 ## Acceptance Criteria
 
-- [ ] AI detection prompt includes all 64 section type slugs with descriptions
-- [ ] AI returns `sectionType` slugs that match the taxonomy
-- [ ] `PageSection` has `sectionType: string | null` field
-- [ ] Unknown sections get `sectionType: null` with descriptive `sectionLabel`
-- [ ] Page detail SVG lookup uses `sectionType` directly (no fuzzy matching for new detections)
-- [ ] Legacy `detectedSections` without `sectionType` still display correctly via fallback
-- [ ] `runFullAnalysis` includes a section detection step across all pages
-- [ ] Analysis page shows Section Inventory with SVG placeholders and occurrence counts
-- [ ] Section Inventory groups by category, shows empty state when no detections exist
-- [ ] `createSectionType` sort order bug is fixed
-- [ ] No TypeScript compilation errors
+- [x] AI detection prompt includes all 64 section type slugs with descriptions
+- [x] AI returns `sectionType` slugs that match the taxonomy
+- [x] `PageSection` has `sectionType: string | null` field
+- [x] Unknown sections get `sectionType: null` with descriptive `sectionLabel`
+- [x] Page detail SVG lookup uses `sectionType` directly (no fuzzy matching for new detections)
+- [x] Legacy `detectedSections` without `sectionType` still display correctly via fallback
+- [x] `runFullAnalysis` includes a section detection step across all pages
+- [x] Analysis page shows Section Inventory with SVG placeholders and occurrence counts
+- [x] Section Inventory groups by category, shows empty state when no detections exist
+- [x] `createSectionType` sort order bug is fixed
+- [x] No TypeScript compilation errors
 
 ## Design Decisions
 

@@ -50,9 +50,9 @@ export async function generateReport(projectId: string) {
       order: 3,
     },
     {
-      type: "component_inventory",
+      type: "section_inventory",
       content: {
-        components: reportData.componentInventory,
+        sections: reportData.sectionInventory,
       },
       order: 4,
     },

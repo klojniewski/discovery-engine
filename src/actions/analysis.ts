@@ -1,11 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { projects, pages, templates, components, componentPages } from "@/db/schema";
+import { projects, pages, templates } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { classifyPages } from "@/services/classification";
 import { scorePages } from "@/services/scoring";
-import { detectComponents, detectPageSections } from "@/services/components";
+import { detectPageSections } from "@/services/components";
 import { sectionTypes as sectionTypesTable } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 
@@ -188,61 +188,6 @@ export async function runContentScoring(projectId: string) {
   return { scored };
 }
 
-export async function runComponentDetection(projectId: string) {
-  await updateStep(projectId, "components");
-
-  // Get templates with representative pages that have screenshots
-  const projectTemplates = await db
-    .select()
-    .from(templates)
-    .where(eq(templates.projectId, projectId));
-
-  // Clear existing components
-  await db.delete(components).where(eq(components.projectId, projectId));
-
-  let detected = 0;
-
-  for (const template of projectTemplates) {
-    if (!template.representativePageId) continue;
-
-    const [repPage] = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.id, template.representativePageId))
-      .limit(1);
-
-    if (!repPage?.screenshotUrl) continue;
-
-    const detectedComponents = await detectComponents(
-      repPage.screenshotUrl,
-      repPage.url
-    );
-
-    for (const comp of detectedComponents) {
-      const [component] = await db
-        .insert(components)
-        .values({
-          projectId,
-          type: comp.type,
-          styleDescription: comp.styleDescription,
-          position: comp.position,
-          complexity: comp.complexity,
-          frequency: 1,
-        })
-        .returning();
-
-      await db.insert(componentPages).values({
-        componentId: component.id,
-        pageId: repPage.id,
-      });
-
-      detected++;
-    }
-  }
-
-  return { detected };
-}
-
 export async function runSectionDetection(projectId: string) {
   await updateStep(projectId, "sections");
 
@@ -299,9 +244,24 @@ export async function runSectionDetection(projectId: string) {
 
 export async function runFullAnalysis(projectId: string) {
   try {
+    // Clear any previous error and set status
+    const [currentProject] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
     await db
       .update(projects)
-      .set({ status: "analyzing" })
+      .set({
+        status: "analyzing",
+        settings: {
+          ...(currentProject.settings as Record<string, unknown>),
+          analysisStep: "classification",
+          analysisError: undefined,
+          analysisProgress: undefined,
+        },
+      })
       .where(eq(projects.id, projectId));
 
     // Step 1: Classification
@@ -310,10 +270,7 @@ export async function runFullAnalysis(projectId: string) {
     // Step 2: Content scoring
     const scoringResult = await runContentScoring(projectId);
 
-    // Step 3: Component detection
-    const componentResult = await runComponentDetection(projectId);
-
-    // Step 4: Section detection across all pages
+    // Step 3: Section detection across all pages
     const sectionResult = await runSectionDetection(projectId);
 
     // Done
@@ -340,7 +297,6 @@ export async function runFullAnalysis(projectId: string) {
     return {
       classification: classificationResult,
       scoring: scoringResult,
-      components: componentResult,
       sections: sectionResult,
     };
   } catch (err) {

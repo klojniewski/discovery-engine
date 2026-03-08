@@ -11,14 +11,14 @@ export interface ReportData {
     totalPages: number;
     scrapedPages: number;
     templateCount: number;
-    componentCount: number;
+    sectionTypeCount: number;
     totalWords: number;
     avgWordsPerPage: number;
   };
   templates: TemplateSection[];
   contentAudit: ContentAuditSection;
   siteArchitecture: SiteArchitectureNode[];
-  componentInventory: ComponentSection[];
+  sectionInventory: ReportSectionInventoryItem[];
 }
 
 export interface TemplateSection {
@@ -67,13 +67,12 @@ export interface SiteArchitectureNode {
   children: SiteArchitectureNode[];
 }
 
-export interface ComponentSection {
-  type: string;
+export interface ReportSectionInventoryItem {
+  slug: string;
+  name: string;
+  category: string;
+  svgContent: string | null;
   count: number;
-  complexity: string | null;
-  position: string | null;
-  styleDescription: string | null;
-  screenshotUrl: string | null;
 }
 
 export type ReportSectionType =
@@ -81,4 +80,4 @@ export type ReportSectionType =
   | "template_inventory"
   | "site_architecture"
   | "content_audit"
-  | "component_inventory";
+  | "section_inventory";

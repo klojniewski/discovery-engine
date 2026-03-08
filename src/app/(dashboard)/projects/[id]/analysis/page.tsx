@@ -4,15 +4,12 @@ import {
   projects,
   pages,
   templates,
-  components,
-  componentPages,
   sectionTypes,
 } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { AnalysisRunner } from "@/components/analysis/analysis-runner";
 import { TemplateClusters } from "@/components/analysis/template-clusters";
 import { ContentTiers } from "@/components/analysis/content-tiers";
-import { ComponentInventory } from "@/components/analysis/component-inventory";
 import { SectionInventory } from "@/components/analysis/section-inventory";
 import type { PageSection } from "@/types/page-sections";
 
@@ -45,27 +42,6 @@ export default async function AnalysisPage({
     .select()
     .from(templates)
     .where(eq(templates.projectId, id));
-
-  const projectComponents = await db
-    .select()
-    .from(components)
-    .where(eq(components.projectId, id));
-
-  // Get screenshot URLs for components via component_pages join
-  const componentPageLinks = await db
-    .select({
-      componentId: componentPages.componentId,
-      screenshotUrl: pages.screenshotUrl,
-    })
-    .from(componentPages)
-    .innerJoin(pages, eq(componentPages.pageId, pages.id));
-
-  const componentScreenshots = new Map<string, string>();
-  for (const link of componentPageLinks) {
-    if (link.screenshotUrl && !componentScreenshots.has(link.componentId)) {
-      componentScreenshots.set(link.componentId, link.screenshotUrl);
-    }
-  }
 
   // Enrich templates with representative screenshots
   const enrichedTemplates = projectTemplates.map((t) => {
@@ -164,19 +140,6 @@ export default async function AnalysisPage({
             />
           </section>
 
-          {projectComponents.length > 0 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-3">
-                Components
-              </h3>
-              <ComponentInventory
-                components={projectComponents.map((c) => ({
-                  ...c,
-                  sourceScreenshotUrl: componentScreenshots.get(c.id) ?? null,
-                }))}
-              />
-            </section>
-          )}
         </>
       )}
     </div>

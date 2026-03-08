@@ -13,7 +13,7 @@ interface ExecutiveSummaryProps {
     totalPages: number;
     scrapedPages: number;
     templateCount: number;
-    componentCount: number;
+    sectionTypeCount: number;
     totalWords: number;
     avgWordsPerPage: number;
   };
@@ -27,31 +27,31 @@ const STAT_CARDS = [
     key: "totalPages" as const,
     label: "Pages Analyzed",
     icon: FileText,
-    format: (v: number) => v.toLocaleString(),
+    format: (v: number) => (v ?? 0).toLocaleString(),
   },
   {
     key: "templateCount" as const,
     label: "Templates Found",
     icon: Layout,
-    format: (v: number) => v.toLocaleString(),
+    format: (v: number) => (v ?? 0).toLocaleString(),
   },
   {
-    key: "componentCount" as const,
-    label: "Components",
+    key: "sectionTypeCount" as const,
+    label: "Section Types",
     icon: Puzzle,
-    format: (v: number) => v.toLocaleString(),
+    format: (v: number) => (v ?? 0).toLocaleString(),
   },
   {
     key: "totalWords" as const,
     label: "Total Words",
     icon: BarChart3,
-    format: (v: number) => v.toLocaleString(),
+    format: (v: number) => (v ?? 0).toLocaleString(),
   },
   {
     key: "avgWordsPerPage" as const,
     label: "Avg Words/Page",
     icon: Globe,
-    format: (v: number) => v.toLocaleString(),
+    format: (v: number) => (v ?? 0).toLocaleString(),
   },
 ];
 

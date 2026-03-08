@@ -59,11 +59,11 @@ export function SectionInventory({
                 >
                   {st.svgContent ? (
                     <div
-                      className="w-full h-16 rounded bg-muted/30 overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-full"
+                      className="w-full rounded bg-muted/30 overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
                       dangerouslySetInnerHTML={{
                         __html: st.svgContent.replace(
                           /width="280"\s+height="140"/,
-                          'width="100%" height="auto"'
+                          'width="100%" viewBox="0 0 280 140" preserveAspectRatio="xMidYMid meet"'
                         ),
                       }}
                     />

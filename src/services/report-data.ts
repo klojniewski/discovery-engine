@@ -1,13 +1,14 @@
 import { db } from "@/db";
-import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { projects, pages, templates, sectionTypes } from "@/db/schema";
+import { eq, and, asc } from "drizzle-orm";
 import type {
   ReportData,
   TemplateSection,
   ContentAuditSection,
   SiteArchitectureNode,
-  ComponentSection,
+  ReportSectionInventoryItem,
 } from "@/types/report";
+import type { PageSection } from "@/types/page-sections";
 
 export async function assembleReportData(
   projectId: string
@@ -30,10 +31,36 @@ export async function assembleReportData(
     .from(templates)
     .where(eq(templates.projectId, projectId));
 
-  const projectComponents = await db
+  // Aggregate detected sections across all pages
+  const allSectionTypes = await db
     .select()
-    .from(components)
-    .where(eq(components.projectId, projectId));
+    .from(sectionTypes)
+    .orderBy(asc(sectionTypes.sortOrder));
+
+  const sectionCounts = new Map<string, number>();
+  for (const page of projectPages) {
+    const detected = page.detectedSections as PageSection[] | null;
+    if (!detected) continue;
+    for (const section of detected) {
+      if (section.sectionType) {
+        sectionCounts.set(
+          section.sectionType,
+          (sectionCounts.get(section.sectionType) ?? 0) + 1
+        );
+      }
+    }
+  }
+
+  const sectionInventory: ReportSectionInventoryItem[] = allSectionTypes
+    .filter((st) => sectionCounts.has(st.slug))
+    .map((st) => ({
+      slug: st.slug,
+      name: st.name,
+      category: st.category,
+      svgContent: st.svgContent,
+      count: sectionCounts.get(st.slug) ?? 0,
+    }))
+    .sort((a, b) => b.count - a.count);
 
   // Stats
   const totalWords = projectPages.reduce(
@@ -45,7 +72,7 @@ export async function assembleReportData(
     totalPages: projectPages.length,
     scrapedPages: projectPages.filter((p) => p.rawMarkdown).length,
     templateCount: projectTemplates.length,
-    componentCount: projectComponents.length,
+    sectionTypeCount: sectionInventory.length,
     totalWords,
     avgWordsPerPage:
       projectPages.length > 0
@@ -106,55 +133,6 @@ export async function assembleReportData(
   // Site architecture tree
   const siteArchitecture = buildSiteTree(projectPages, projectTemplates);
 
-  // Component inventory — grouped by type with screenshot URLs
-  const cpLinks = await db
-    .select({
-      componentId: componentPages.componentId,
-      screenshotUrl: pages.screenshotUrl,
-    })
-    .from(componentPages)
-    .innerJoin(pages, eq(componentPages.pageId, pages.id));
-
-  const compScreenshots = new Map<string, string>();
-  for (const link of cpLinks) {
-    if (link.screenshotUrl && !compScreenshots.has(link.componentId)) {
-      compScreenshots.set(link.componentId, link.screenshotUrl);
-    }
-  }
-
-  const compGroups = new Map<string, typeof projectComponents>();
-  for (const comp of projectComponents) {
-    const group = compGroups.get(comp.type) ?? [];
-    group.push(comp);
-    compGroups.set(comp.type, group);
-  }
-
-  const complexityOrder: Record<string, number> = { complex: 0, moderate: 1, simple: 2 };
-  const componentInventory: ComponentSection[] = [...compGroups.entries()]
-    .map(([type, group]) => {
-      const rep = [...group].sort((a, b) => {
-        const aHasImg = compScreenshots.has(a.id) ? 0 : 1;
-        const bHasImg = compScreenshots.has(b.id) ? 0 : 1;
-        if (aHasImg !== bHasImg) return aHasImg - bHasImg;
-        return (complexityOrder[a.complexity ?? "moderate"] ?? 1) -
-          (complexityOrder[b.complexity ?? "moderate"] ?? 1);
-      })[0];
-      return {
-        type,
-        count: group.length,
-        complexity: rep.complexity,
-        position: rep.position,
-        styleDescription: rep.styleDescription,
-        screenshotUrl: compScreenshots.get(rep.id) ?? null,
-      };
-    })
-    .sort((a, b) => {
-      const ca = complexityOrder[a.complexity ?? "moderate"] ?? 1;
-      const cb = complexityOrder[b.complexity ?? "moderate"] ?? 1;
-      if (ca !== cb) return ca - cb;
-      return b.count - a.count;
-    });
-
   return {
     project: {
       id: project.id,
@@ -168,7 +146,7 @@ export async function assembleReportData(
     templates: templateSections,
     contentAudit,
     siteArchitecture,
-    componentInventory,
+    sectionInventory,
   };
 }
 
@@ -196,7 +174,6 @@ function buildSiteTree(
       };
 
       if (segments.length === 0) {
-        // Homepage
         const existing = root.find((n) => n.segment === "/");
         if (existing) {
           existing.page = pageData;
@@ -241,7 +218,6 @@ function buildSiteTree(
     }
   }
 
-  // Sort nodes alphabetically, homepage first
   const sortNodes = (nodes: SiteArchitectureNode[]) => {
     nodes.sort((a, b) => {
       if (a.segment === "/") return -1;

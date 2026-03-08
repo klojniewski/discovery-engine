@@ -3,52 +3,6 @@ import type { PageSection } from "@/types/page-sections";
 import { parsePageSections } from "@/types/page-sections";
 import { extractHtmlSections, formatHtmlSectionsForPrompt } from "./html-sections";
 
-interface DetectedComponent {
-  type: string;
-  styleDescription: string;
-  position: string;
-  complexity: "simple" | "moderate" | "complex";
-}
-
-export async function detectComponents(
-  screenshotUrl: string,
-  pageUrl: string
-): Promise<DetectedComponent[]> {
-  const prompt = `Analyze this webpage screenshot and identify all distinct UI components/sections.
-
-Page URL: ${pageUrl}
-
-For each component, provide:
-- type: one of: hero, navigation, sub_navigation, cta, form, card_grid, testimonial, logo_grid, stats, accordion, tabs, footer, sidebar, breadcrumb, search, video_embed, image_gallery, pricing_table, feature_grid, team_grid, timeline, faq, newsletter_signup, social_links, other
-- styleDescription: brief description of visual style (colors, layout, typography)
-- position: one of: header, above_fold, mid_page, below_fold, footer
-- complexity: "simple", "moderate", or "complex"
-
-Return a JSON array of components found.`;
-
-  const response = await callClaudeWithImage(prompt, screenshotUrl, {
-    model: "claude-sonnet-4-6",
-  });
-
-  try {
-    const cleaned = response.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
-    const parsed = JSON.parse(cleaned);
-    return (Array.isArray(parsed) ? parsed : []).map(
-      (item: Record<string, string>) => ({
-        type: item.type ?? "other",
-        styleDescription: item.styleDescription ?? "",
-        position: item.position ?? "mid_page",
-        complexity: (["simple", "moderate", "complex"].includes(item.complexity)
-          ? item.complexity
-          : "moderate") as "simple" | "moderate" | "complex",
-      })
-    );
-  } catch {
-    console.error("Failed to parse component detection response:", response);
-    return [];
-  }
-}
-
 export async function detectPageSections(
   screenshotUrl: string,
   pageUrl: string,
@@ -61,20 +15,18 @@ export async function detectPageSections(
     ? formatHtmlSectionsForPrompt(htmlSections)
     : "";
 
-  // Pre-fetch image dimensions so the prompt can tell the AI the exact height
-  const sharp = (await import("sharp")).default;
-  const imgRes = await fetch(screenshotUrl);
-  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-  const imgMeta = await sharp(imgBuffer).metadata();
-  const imageHeight = imgMeta.height ?? 0;
-
   const validSlugs = sectionTypes?.map((st) => st.slug);
 
-  const { text: response } = await callClaudeWithImage(
-    buildSectionPrompt(pageUrl, htmlContext, imageHeight, sectionTypes),
+  // callClaudeWithImage handles resizing (max 7900px) and returns actual dimensions sent
+  // We use a placeholder height in the prompt, then fix it with the real meta below
+  const { text: response, meta } = await callClaudeWithImage(
+    buildSectionPrompt(pageUrl, htmlContext, 0, sectionTypes),
     screenshotUrl,
     { model: "claude-sonnet-4-6", returnMeta: true }
   );
+
+  // Use the actual image height (post-resize) for coordinate conversion
+  const imageHeight = meta.height;
 
   try {
     const cleaned = response.replace(/^```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "");
@@ -104,7 +56,7 @@ export async function detectPageSections(
   } catch (err) {
     console.error("Failed to parse page sections response:", response);
     throw new Error(
-      `Component detection failed: ${err instanceof Error ? err.message : "could not parse AI response"}`
+      `Section detection failed: ${err instanceof Error ? err.message : "could not parse AI response"}`
     );
   }
 }
