@@ -46,7 +46,8 @@ interface ClassifyAndScoreResult {
  */
 export async function classifyAndScorePages(
   pages: PageInput[],
-  projectId?: string
+  projectId?: string,
+  onProgress?: (completed: number, total: number) => void | Promise<void>
 ): Promise<ClassifyAndScoreResult[]> {
   // Handle duplicates locally — no need to send to API
   const duplicates = pages.filter((p) => p.isDuplicate);
@@ -74,6 +75,9 @@ export async function classifyAndScorePages(
     const batch = nonDuplicates.slice(i, i + 10);
     const batchResults = await classifyAndScoreBatch(batch, projectId);
     aiResults.push(...batchResults);
+    if (onProgress) {
+      await onProgress(duplicates.length + aiResults.length, pages.length);
+    }
   }
 
   return [...duplicateResults, ...aiResults];

@@ -84,12 +84,11 @@ async function runClassifyAndScore(projectId: string) {
       : false,
   }));
 
-  const results = await classifyAndScorePages(pageInputs, projectId);
-
-  await updateStep(projectId, "classification", {
-    completed: projectPages.length,
-    total: projectPages.length,
-  });
+  const results = await classifyAndScorePages(
+    pageInputs,
+    projectId,
+    (completed, total) => updateStep(projectId, "classification", { completed, total })
+  );
 
   // Update pages with content tier and duplicate flag
   for (const result of results) {
