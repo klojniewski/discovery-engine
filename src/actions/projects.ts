@@ -108,10 +108,15 @@ export async function startProjectCrawl(projectId: string) {
     excludePaths?: string[];
   } | null;
 
+  // Always exclude non-HTML resources from crawl
+  const defaultExcludes = ["*.pdf", "*.zip", "*.doc", "*.docx", "*.xls", "*.xlsx", "*.ppt", "*.pptx"];
+  const userExcludes = settings?.excludePaths ?? [];
+  const allExcludes = [...defaultExcludes, ...userExcludes];
+
   const { jobId } = await firecrawlStart({
     url: project.websiteUrl,
     limit: settings?.pageLimit ?? 500,
-    excludePaths: settings?.excludePaths,
+    excludePaths: allExcludes,
   });
 
   await db
@@ -179,6 +184,11 @@ function normalizeUrl(raw: string): string {
 }
 
 const JUNK_URL_PATTERNS = [
+  /\.pdf$/i,
+  /\.zip$/i,
+  /\.doc[x]?$/i,
+  /\.xls[x]?$/i,
+  /\.ppt[x]?$/i,
   /\.xml$/i,
   /\.txt$/i,
   /\.json$/i,

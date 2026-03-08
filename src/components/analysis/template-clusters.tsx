@@ -190,10 +190,22 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                   href={page.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block rounded-md p-2 hover:bg-muted text-sm"
+                  className="block rounded-md p-2 hover:bg-muted text-sm group"
                 >
-                  <div className="font-mono text-xs text-primary truncate">
-                    {page.url}
+                  <div className="font-mono text-xs text-primary underline underline-offset-2 decoration-primary/40 group-hover:decoration-primary truncate" title={page.url}>
+                    {(() => {
+                      try {
+                        const { hostname, pathname, search } = new URL(page.url);
+                        const full = hostname + pathname + search;
+                        return full.length > 60
+                          ? full.slice(0, 57) + "..."
+                          : full;
+                      } catch {
+                        return page.url.length > 60
+                          ? page.url.slice(0, 57) + "..."
+                          : page.url;
+                      }
+                    })()}
                   </div>
                   {page.title && (
                     <div className="text-xs text-muted-foreground truncate mt-0.5">

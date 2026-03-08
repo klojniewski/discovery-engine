@@ -2,7 +2,7 @@
 title: "feat: Smart Analysis Pipeline - Restructure Workflow"
 type: feat
 date: 2026-03-08
-status: draft
+status: in-progress
 ---
 
 # Smart Analysis Pipeline - Restructure Crawl → Analyse → Screenshot Workflow
@@ -253,6 +253,14 @@ Users might want to screenshot more than just the auto-selected representative p
 - [x] Overview page shows crawl summary stats
 - [x] Pages tab shows list of all pages (not 404)
 
+### Quality & Scoring Improvements (added 2026-03-08)
+- [x] Merged classification + scoring into single API call (~30% cost reduction)
+- [x] Fixed scoring prompt: legal pages (privacy, terms, cookies) now must_migrate, not archive
+- [x] Added PDF and binary file filtering at Firecrawl level (earliest possible)
+- [x] Added PDF/binary backup filtering in JUNK_URL_PATTERNS
+- [x] Content Tiers table: pagination (50/page) and tier filtering
+- [x] Template pages modal: truncated URLs with ... and proper link styling
+
 ### Non-Functional
 - [ ] Classification + scoring for 1000 pages completes in < 5 minutes
 - [ ] Screenshot capture for 25 pages completes in < 5 minutes
@@ -291,7 +299,7 @@ Users might want to screenshot more than just the auto-selected representative p
 - `src/actions/analysis.ts` — Analysis pipeline orchestration
 - `src/actions/projects.ts` — Crawl, scrape, page management
 - `src/services/classification.ts` — Haiku classification (batches of 10)
-- `src/services/scoring.ts` — Haiku scoring (batches of 15)
+- `src/services/scoring.ts` — DEPRECATED: scoring merged into classification.ts
 - `src/services/components.ts` — `detectPageSections()` Sonnet vision
 - `src/services/screenshots.ts` — Firecrawl screenshot capture
 - `src/services/anthropic.ts` — `callClaude()`, `callClaudeWithImage()`, usage logging

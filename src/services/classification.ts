@@ -126,15 +126,16 @@ async function classifyAndScoreBatch(
 TEMPLATE TYPES: ${TEMPLATE_TYPES.join(", ")}
 
 CONTENT TIERS:
-- "must_migrate": High-value pages critical to the business — homepage, key service/product pages, case studies, about pages, team pages, pricing. Content that drives conversions or establishes authority.
+- "must_migrate": High-value pages critical to the business — homepage, key service/product pages, case studies, about pages, team pages, pricing. Also includes legally required pages (privacy policy, terms of service, cookie policy) — these MUST be migrated regardless of SEO value.
 - "improve": Pages worth keeping but need work — thin landing pages, outdated content, pages with poor structure. They have potential value but aren't migration-ready as-is.
-- "archive": Low-value pages to drop or redirect — legal boilerplate (cookies/privacy), empty/placeholder pages, outdated job postings, utility pages with no SEO or business value.
+- "archive": Low-value pages to drop or redirect — empty/placeholder pages, outdated job postings, utility pages with no SEO or business value, blog listing/pagination pages (/page/2, /page/3), tag archives, author archives.
 
 GUIDELINES:
 - Use URL patterns (e.g. /case-studies/ → case_study, /blog/ → blog_post, / alone → homepage) and content to classify templates. Don't use custom_page unless nothing else fits.
 - Judge content tier by VALUE, not metadata formatting. A 3000-word case study beats a 500-word cookies policy.
 - Blog posts with substantial content (500+ words) are usually must_migrate.
-- Legal/policy pages are almost always archive.
+- Legal/policy pages (privacy, terms, cookies, GDPR) are must_migrate — they are legally required.
+- WordPress pagination pages (/page/2, /author/*/page/N, /category/*/page/N) are archive.
 - Pages with very few words (<50) and no clear purpose are archive.
 
 Pages to analyze:
