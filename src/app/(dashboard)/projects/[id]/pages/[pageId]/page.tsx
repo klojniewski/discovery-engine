@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { pages, templates } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { PageDetail } from "@/components/pages/page-detail";
+import { getSectionTypes } from "@/actions/section-types";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
@@ -21,15 +22,17 @@ export default async function PageDetailPage({
 
   if (!page) return notFound();
 
-  const template = page.templateId
-    ? (
-        await db
+  const [template, sectionTypes] = await Promise.all([
+    page.templateId
+      ? db
           .select({ name: templates.displayName, fallback: templates.name })
           .from(templates)
           .where(eq(templates.id, page.templateId))
           .limit(1)
-      )[0]
-    : null;
+          .then((rows) => rows[0])
+      : Promise.resolve(null),
+    getSectionTypes(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -56,6 +59,7 @@ export default async function PageDetailPage({
           templateName: template?.name ?? template?.fallback ?? null,
           detectedSections: page.detectedSections ?? null,
         }}
+        sectionTypes={sectionTypes}
       />
     </div>
   );
