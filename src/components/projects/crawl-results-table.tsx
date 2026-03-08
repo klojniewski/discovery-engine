@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Download, FileText, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { ContentPreviewPanel } from "./content-preview-panel";
 
 interface CrawlPage {
@@ -21,6 +23,7 @@ export function CrawlResultsTable({
   currentPage,
   totalPages,
   projectId,
+  search,
 }: {
   pages: CrawlPage[];
   projectName: string;
@@ -28,8 +31,32 @@ export function CrawlResultsTable({
   currentPage: number;
   totalPages: number;
   projectId: string;
+  search?: string;
 }) {
   const [previewPage, setPreviewPage] = useState<CrawlPage | null>(null);
+  const [searchValue, setSearchValue] = useState(search ?? "");
+  const router = useRouter();
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchValue.trim()) {
+      params.set("search", searchValue.trim());
+    }
+    router.push(`/projects/${projectId}/crawl?${params.toString()}`);
+  }
+
+  function clearSearch() {
+    setSearchValue("");
+    router.push(`/projects/${projectId}/crawl`);
+  }
+
+  function buildPageUrl(page: number) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    if (search) params.set("search", search);
+    return `/projects/${projectId}/crawl?${params.toString()}`;
+  }
 
   function exportCsv() {
     const header = "URL,Title,Word Count";
@@ -55,12 +82,44 @@ export function CrawlResultsTable({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium">Crawled Pages ({totalCount})</h3>
+        <h3 className="font-medium">
+          Crawled Pages ({totalCount})
+          {search && (
+            <span className="text-muted-foreground font-normal text-sm ml-2">
+              filtered by &ldquo;{search}&rdquo;
+            </span>
+          )}
+        </h3>
         <Button variant="outline" size="sm" onClick={exportCsv}>
           <Download className="h-4 w-4 mr-1" />
           Export CSV
         </Button>
       </div>
+
+      <form onSubmit={handleSearch} className="flex gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search by URL or title..."
+            className="pl-9 pr-9"
+          />
+          {searchValue && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Button type="submit" variant="secondary" size="default">
+          Search
+        </Button>
+      </form>
+
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -131,7 +190,7 @@ export function CrawlResultsTable({
           </p>
           <div className="flex items-center gap-1">
             <Link
-              href={`/projects/${projectId}/crawl?page=${currentPage - 1}`}
+              href={buildPageUrl(currentPage - 1)}
               className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
                 currentPage <= 1
                   ? "pointer-events-none opacity-50"
@@ -150,7 +209,7 @@ export function CrawlResultsTable({
               ) : (
                 <Link
                   key={p}
-                  href={`/projects/${projectId}/crawl?page=${p}`}
+                  href={buildPageUrl(p as number)}
                   className={`inline-flex items-center justify-center rounded-md h-8 min-w-8 px-2 text-sm ${
                     p === currentPage
                       ? "bg-primary text-primary-foreground"
@@ -162,7 +221,7 @@ export function CrawlResultsTable({
               )
             )}
             <Link
-              href={`/projects/${projectId}/crawl?page=${currentPage + 1}`}
+              href={buildPageUrl(currentPage + 1)}
               className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
                 currentPage >= totalPages
                   ? "pointer-events-none opacity-50"

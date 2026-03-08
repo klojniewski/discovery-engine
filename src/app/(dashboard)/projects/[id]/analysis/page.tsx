@@ -6,8 +6,9 @@ import {
   templates,
   sectionTypes,
 } from "@/db/schema";
-import { eq, and, asc } from "drizzle-orm";
-import { AnalysisRunner } from "@/components/analysis/analysis-runner";
+import { eq, and, asc, sql } from "drizzle-orm";
+import { ClassifyRunner } from "@/components/analysis/classify-runner";
+import { SectionRunner } from "@/components/analysis/section-runner";
 import { TemplateClusters } from "@/components/analysis/template-clusters";
 import { ContentTiers } from "@/components/analysis/content-tiers";
 import { SectionInventory } from "@/components/analysis/section-inventory";
@@ -42,6 +43,13 @@ export default async function AnalysisPage({
     .select()
     .from(templates)
     .where(eq(templates.projectId, id));
+
+  // Count pages for cost estimation
+  const [pageCountResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(and(eq(pages.projectId, id), eq(pages.excluded, false)));
+  const pageCount = Number(pageCountResult.count);
 
   // Enrich templates with representative screenshots
   const enrichedTemplates = projectTemplates.map((t) => {
@@ -90,9 +98,17 @@ export default async function AnalysisPage({
       count: sectionCounts.get(st.slug) ?? 0,
     }));
 
-  const hasResults =
-    projectTemplates.length > 0 ||
-    projectPages.some((p) => p.contentTier);
+  const hasTemplates = projectTemplates.length > 0;
+  const hasScoring = projectPages.some((p) => p.contentTier);
+  const hasSections = pagesWithSections > 0;
+
+  // Determine which phase to show
+  const status = project.status;
+  const showClassifyPhase =
+    status === "crawled" || status === "analysis_failed" ||
+    (status === "analyzing" && settings?.analysisStep === "classification");
+  const showReviewPhase = status === "classified" || (hasTemplates && !hasSections && status !== "analyzing");
+  const showResultsPhase = status === "reviewing" || hasSections;
 
   return (
     <div className="space-y-8">
@@ -103,14 +119,19 @@ export default async function AnalysisPage({
         </p>
       </div>
 
-      <AnalysisRunner
-        projectId={id}
-        initialStatus={project.status}
-        initialStep={settings?.analysisStep ?? null}
-      />
+      {/* Phase A: Classify & Score */}
+      {showClassifyPhase && (
+        <ClassifyRunner
+          projectId={id}
+          initialStatus={status}
+          initialStep={settings?.analysisStep ?? null}
+          pageCount={pageCount}
+        />
+      )}
 
-      {hasResults && (
-        <>
+      {/* Phase B: Review Templates & Capture Screenshots */}
+      {showReviewPhase && (
+        <div className="space-y-6">
           <section>
             <h3 className="text-lg font-semibold mb-3">
               Templates ({projectTemplates.length})
@@ -118,10 +139,40 @@ export default async function AnalysisPage({
             <TemplateClusters templates={enrichedTemplates} />
           </section>
 
-          <section>
-            <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
-            <ContentTiers pages={projectPages} />
-          </section>
+          {hasScoring && (
+            <section>
+              <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
+              <ContentTiers pages={projectPages} />
+            </section>
+          )}
+
+          <SectionRunner
+            projectId={id}
+            initialStatus={status}
+            initialStep={settings?.analysisStep ?? null}
+            templateCount={projectTemplates.length}
+          />
+        </div>
+      )}
+
+      {/* Phase C: Results */}
+      {showResultsPhase && (
+        <>
+          {hasTemplates && (
+            <section>
+              <h3 className="text-lg font-semibold mb-3">
+                Templates ({projectTemplates.length})
+              </h3>
+              <TemplateClusters templates={enrichedTemplates} />
+            </section>
+          )}
+
+          {hasScoring && (
+            <section>
+              <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
+              <ContentTiers pages={projectPages} />
+            </section>
+          )}
 
           <section>
             <h3 className="text-lg font-semibold mb-3">
@@ -140,6 +191,15 @@ export default async function AnalysisPage({
             />
           </section>
 
+          <div className="flex gap-2">
+            <ClassifyRunner
+              projectId={id}
+              initialStatus={status}
+              initialStep="completed"
+              pageCount={pageCount}
+              compact
+            />
+          </div>
         </>
       )}
     </div>

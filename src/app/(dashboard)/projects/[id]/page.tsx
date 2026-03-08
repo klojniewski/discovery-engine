@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { getProject } from "@/actions/projects";
+import { getProject, getProjectStats } from "@/actions/projects";
 import { getProjectCosts } from "@/actions/costs";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign, Cpu, ArrowRight, Pencil } from "lucide-react";
+import { DollarSign, Cpu, ArrowRight, Pencil, Globe, FileText, BarChart3 } from "lucide-react";
 
 export default async function ProjectOverviewPage({
   params,
@@ -12,9 +12,10 @@ export default async function ProjectOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [project, costs] = await Promise.all([
+  const [project, costs, stats] = await Promise.all([
     getProject(id),
     getProjectCosts(id),
+    getProjectStats(id),
   ]);
 
   if (!project) return notFound();
@@ -85,6 +86,64 @@ export default async function ProjectOverviewPage({
         <div>
           <p className="text-sm text-muted-foreground mb-1">Notes</p>
           <p className="text-sm">{settings.notes}</p>
+        </div>
+      )}
+
+      {/* Crawl Summary Stats */}
+      {stats.totalPages > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Crawl Summary</h3>
+          <div className="grid grid-cols-4 gap-3 max-w-2xl">
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <Globe className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">Total Pages</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">{stats.totalPages}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">With Content</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">{stats.pagesWithContent}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">Avg Words</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">{stats.avgWordCount}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">Max Words</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">{stats.maxWordCount.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {stats.topPrefixes.length > 0 && (
+            <div className="max-w-2xl">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Top URL Sections</p>
+              <div className="flex flex-wrap gap-2">
+                {stats.topPrefixes.map((p) => (
+                  <Badge key={p.prefix} variant="secondary" className="font-mono text-xs">
+                    {p.prefix} <span className="ml-1 text-muted-foreground">({p.count})</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -189,6 +189,10 @@ const JUNK_URL_PATTERNS = [
   /\/wp-login\.php/i,
   /\/wp-cron\.php/i,
   /\/xmlrpc\.php/i,
+  /\/page\/\d+\/?$/i,            // WordPress pagination: /author/foo/page/2
+  /\/tag\//i,                     // Tag archives
+  /\/category\/.*\/page\//i,      // Category pagination
+  /\/author\/.*\/page\//i,        // Author pagination
 ];
 
 function isJunkUrl(url: string): boolean {
@@ -278,9 +282,19 @@ export async function getProjectPages(projectId: string) {
 export async function getProjectPagesPaginated(
   projectId: string,
   page: number = 1,
-  perPage: number = 50
+  perPage: number = 50,
+  search?: string
 ) {
   const offset = (page - 1) * perPage;
+
+  const conditions = [eq(pages.projectId, projectId)];
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      sql`(${pages.url} ILIKE ${pattern} OR ${pages.title} ILIKE ${pattern})`
+    );
+  }
+  const where = and(...conditions);
 
   const [items, countResult] = await Promise.all([
     db
@@ -292,14 +306,14 @@ export async function getProjectPagesPaginated(
         rawMarkdown: pages.rawMarkdown,
       })
       .from(pages)
-      .where(eq(pages.projectId, projectId))
+      .where(where)
       .orderBy(pages.url)
       .limit(perPage)
       .offset(offset),
     db
       .select({ count: sql<number>`count(*)` })
       .from(pages)
-      .where(eq(pages.projectId, projectId)),
+      .where(where),
   ]);
 
   const total = Number(countResult[0].count);
@@ -310,6 +324,47 @@ export async function getProjectPagesPaginated(
     page,
     perPage,
     totalPages: Math.ceil(total / perPage),
+  };
+}
+
+export async function getProjectStats(projectId: string) {
+  const [countResult, contentResult, wordResult, prefixResult] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(pages)
+      .where(eq(pages.projectId, projectId)),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(pages)
+      .where(and(eq(pages.projectId, projectId), sql`${pages.rawMarkdown} IS NOT NULL`)),
+    db
+      .select({
+        avgWords: sql<number>`coalesce(avg(${pages.wordCount}), 0)`,
+        maxWords: sql<number>`coalesce(max(${pages.wordCount}), 0)`,
+      })
+      .from(pages)
+      .where(and(eq(pages.projectId, projectId), sql`${pages.wordCount} > 0`)),
+    db
+      .select({
+        prefix: sql<string>`split_part(regexp_replace(${pages.url}, '^https?://[^/]+', ''), '/', 2)`.as("prefix"),
+        count: sql<number>`count(*)`.as("cnt"),
+      })
+      .from(pages)
+      .where(eq(pages.projectId, projectId))
+      .groupBy(sql`prefix`)
+      .orderBy(sql`cnt DESC`)
+      .limit(8),
+  ]);
+
+  return {
+    totalPages: Number(countResult[0].count),
+    pagesWithContent: Number(contentResult[0].count),
+    avgWordCount: Math.round(Number(wordResult[0].avgWords)),
+    maxWordCount: Number(wordResult[0].maxWords),
+    topPrefixes: prefixResult.map((r) => ({
+      prefix: `/${r.prefix || "(root)"}`,
+      count: Number(r.count),
+    })),
   };
 }
 

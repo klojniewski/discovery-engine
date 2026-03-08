@@ -8,16 +8,16 @@ export default async function CrawlPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; search?: string }>;
 }) {
   const { id } = await params;
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, search } = await searchParams;
   const project = await getProject(id);
 
   if (!project) return notFound();
 
   const currentPage = Math.max(1, parseInt(pageParam ?? "1") || 1);
-  const result = await getProjectPagesPaginated(id, currentPage, 50);
+  const result = await getProjectPagesPaginated(id, currentPage, 50, search);
 
   return (
     <div className="space-y-6">
@@ -44,7 +44,14 @@ export default async function CrawlPage({
           currentPage={result.page}
           totalPages={result.totalPages}
           projectId={id}
+          search={search}
         />
+      )}
+
+      {result.total === 0 && search && (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          No pages matching &ldquo;{search}&rdquo;
+        </p>
       )}
     </div>
   );
