@@ -106,7 +106,7 @@ export default async function AnalysisPage({
   const status = project.status;
   const showClassifyPhase =
     status === "crawled" || status === "analysis_failed" ||
-    (status === "analyzing" && settings?.analysisStep === "classification");
+    (status === "analyzing" && (settings?.analysisStep === "classification" || settings?.analysisStep === "saving"));
   const showReviewPhase = status === "classified" || (hasTemplates && !hasSections && status !== "analyzing");
   const showResultsPhase = status === "reviewing" || hasSections;
 

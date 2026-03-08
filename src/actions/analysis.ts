@@ -90,22 +90,29 @@ async function runClassifyAndScore(projectId: string) {
     (completed, total) => updateStep(projectId, "classification", { completed, total })
   );
 
-  // Update pages with content tier and duplicate flag
-  for (const result of results) {
-    const page = projectPages.find((p) => p.url === result.url);
-    if (!page) continue;
+  // Build a URL→page lookup for fast matching
+  const pageByUrl = new Map(projectPages.map((p) => [p.url, p]));
 
-    const isDuplicate = page.contentHash
-      ? (hashCounts.get(page.contentHash) ?? 0) > 1
-      : false;
+  await updateStep(projectId, "saving");
 
-    await db
-      .update(pages)
-      .set({
-        contentTier: result.tier,
-        isDuplicate,
+  // Update pages with content tier and duplicate flag — batch by 50
+  for (let i = 0; i < results.length; i += 50) {
+    const batch = results.slice(i, i + 50);
+    await Promise.all(
+      batch.map((result) => {
+        const page = pageByUrl.get(result.url);
+        if (!page) return;
+
+        const isDuplicate = page.contentHash
+          ? (hashCounts.get(page.contentHash) ?? 0) > 1
+          : false;
+
+        return db
+          .update(pages)
+          .set({ contentTier: result.tier, isDuplicate })
+          .where(eq(pages.id, page.id));
       })
-      .where(eq(pages.id, page.id));
+    );
   }
 
   // Create template records grouped by type
@@ -124,13 +131,12 @@ async function runClassifyAndScore(projectId: string) {
   await db.delete(templates).where(eq(templates.projectId, projectId));
 
   for (const [type, group] of templateGroups) {
-    // Find the highest-confidence page as representative
     const representative = group.sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 };
       return order[a.confidence] - order[b.confidence];
     })[0];
 
-    const repPage = projectPages.find((p) => p.url === representative.url);
+    const repPage = pageByUrl.get(representative.url);
 
     const [template] = await db
       .insert(templates)
@@ -148,15 +154,16 @@ async function runClassifyAndScore(projectId: string) {
       })
       .returning();
 
-    // Update pages with template ID
-    for (const r of group) {
-      const page = projectPages.find((p) => p.url === r.url);
-      if (page) {
-        await db
-          .update(pages)
-          .set({ templateId: template.id })
-          .where(eq(pages.id, page.id));
-      }
+    // Batch-update pages with template ID
+    const pageIds = group
+      .map((r) => pageByUrl.get(r.url)?.id)
+      .filter((id): id is string => id !== undefined);
+
+    if (pageIds.length > 0) {
+      await db
+        .update(pages)
+        .set({ templateId: template.id })
+        .where(inArray(pages.id, pageIds));
     }
   }
 

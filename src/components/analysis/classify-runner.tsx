@@ -8,6 +8,7 @@ import { estimateClassificationAndScoringCost, formatCost } from "@/lib/cost-est
 
 const STEPS = [
   { key: "classification", label: "Classifying & Scoring Pages" },
+  { key: "saving", label: "Saving Results" },
   { key: "classified", label: "Classification Complete" },
 ];
 
@@ -35,7 +36,7 @@ export function ClassifyRunner({
   } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isAnalyzing = status === "analyzing" && currentStep === "classification";
+  const isAnalyzing = status === "analyzing" && (currentStep === "classification" || currentStep === "saving");
   const canRun = status === "crawled" || status === "analysis_failed";
   const isComplete = currentStep === "classified" || currentStep === "completed";
 
