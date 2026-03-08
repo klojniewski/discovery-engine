@@ -243,6 +243,60 @@ export async function runComponentDetection(projectId: string) {
   return { detected };
 }
 
+export async function runSectionDetection(projectId: string) {
+  await updateStep(projectId, "sections");
+
+  // Fetch section types for taxonomy-driven detection
+  const allSectionTypes = await db
+    .select({ slug: sectionTypesTable.slug, category: sectionTypesTable.category, description: sectionTypesTable.description })
+    .from(sectionTypesTable)
+    .orderBy(asc(sectionTypesTable.sortOrder));
+
+  // Get all non-excluded pages with screenshots that don't already have detectedSections
+  const projectPages = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+
+  const pagesToDetect = projectPages.filter(
+    (p) => p.screenshotUrl && !p.detectedSections
+  );
+
+  let detected = 0;
+  for (const page of pagesToDetect) {
+    await updateStep(projectId, "sections", {
+      completed: detected,
+      total: pagesToDetect.length,
+    });
+
+    try {
+      const sections = await detectPageSections(
+        page.screenshotUrl!,
+        page.url,
+        page.rawHtml,
+        allSectionTypes
+      );
+
+      await db
+        .update(pages)
+        .set({ detectedSections: sections })
+        .where(eq(pages.id, page.id));
+    } catch (err) {
+      console.error(`Section detection failed for page ${page.url}:`, err);
+      // Continue with other pages — don't fail the whole analysis
+    }
+
+    detected++;
+  }
+
+  await updateStep(projectId, "sections", {
+    completed: pagesToDetect.length,
+    total: pagesToDetect.length,
+  });
+
+  return { detected };
+}
+
 export async function runFullAnalysis(projectId: string) {
   try {
     await db
@@ -258,6 +312,9 @@ export async function runFullAnalysis(projectId: string) {
 
     // Step 3: Component detection
     const componentResult = await runComponentDetection(projectId);
+
+    // Step 4: Section detection across all pages
+    const sectionResult = await runSectionDetection(projectId);
 
     // Done
     await db
@@ -284,6 +341,7 @@ export async function runFullAnalysis(projectId: string) {
       classification: classificationResult,
       scoring: scoringResult,
       components: componentResult,
+      sections: sectionResult,
     };
   } catch (err) {
     const [project] = await db

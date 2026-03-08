@@ -1,11 +1,20 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { projects, pages, templates, components, componentPages } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  projects,
+  pages,
+  templates,
+  components,
+  componentPages,
+  sectionTypes,
+} from "@/db/schema";
+import { eq, and, asc } from "drizzle-orm";
 import { AnalysisRunner } from "@/components/analysis/analysis-runner";
 import { TemplateClusters } from "@/components/analysis/template-clusters";
 import { ContentTiers } from "@/components/analysis/content-tiers";
 import { ComponentInventory } from "@/components/analysis/component-inventory";
+import { SectionInventory } from "@/components/analysis/section-inventory";
+import type { PageSection } from "@/types/page-sections";
 
 export default async function AnalysisPage({
   params,
@@ -69,6 +78,42 @@ export default async function AnalysisPage({
     };
   });
 
+  // Aggregate detected sections across all pages
+  const allSectionTypes = await db
+    .select()
+    .from(sectionTypes)
+    .orderBy(asc(sectionTypes.sortOrder));
+
+  const sectionCounts = new Map<string, number>();
+  let unmatchedSectionCount = 0;
+  let pagesWithSections = 0;
+
+  for (const page of projectPages) {
+    const detected = page.detectedSections as PageSection[] | null;
+    if (!detected || detected.length === 0) continue;
+    pagesWithSections++;
+    for (const section of detected) {
+      if (section.sectionType) {
+        sectionCounts.set(
+          section.sectionType,
+          (sectionCounts.get(section.sectionType) ?? 0) + 1
+        );
+      } else {
+        unmatchedSectionCount++;
+      }
+    }
+  }
+
+  const sectionTypesWithCounts = allSectionTypes
+    .filter((st) => sectionCounts.has(st.slug))
+    .map((st) => ({
+      slug: st.slug,
+      name: st.name,
+      category: st.category,
+      svgContent: st.svgContent,
+      count: sectionCounts.get(st.slug) ?? 0,
+    }));
+
   const hasResults =
     projectTemplates.length > 0 ||
     projectPages.some((p) => p.contentTier);
@@ -100,6 +145,23 @@ export default async function AnalysisPage({
           <section>
             <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
             <ContentTiers pages={projectPages} />
+          </section>
+
+          <section>
+            <h3 className="text-lg font-semibold mb-3">
+              Sections
+              {pagesWithSections > 0 && (
+                <span className="text-muted-foreground font-normal text-sm ml-2">
+                  ({sectionTypesWithCounts.length} types)
+                </span>
+              )}
+            </h3>
+            <SectionInventory
+              sectionTypes={sectionTypesWithCounts}
+              unmatchedCount={unmatchedSectionCount}
+              totalPages={projectPages.length}
+              pagesWithSections={pagesWithSections}
+            />
           </section>
 
           {projectComponents.length > 0 && (

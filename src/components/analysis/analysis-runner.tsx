@@ -9,6 +9,7 @@ const STEPS = [
   { key: "classification", label: "Classifying Templates" },
   { key: "scoring", label: "Scoring Content" },
   { key: "components", label: "Detecting Components" },
+  { key: "sections", label: "Detecting Sections" },
   { key: "completed", label: "Analysis Complete" },
 ];
 
