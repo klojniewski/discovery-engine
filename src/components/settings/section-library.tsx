@@ -127,8 +127,8 @@ function SectionTypeCard({
       <div className="rounded-lg border border-primary p-3 space-y-2">
         {sectionType.svgContent && (
           <div
-            className="w-full rounded bg-muted/30"
-            dangerouslySetInnerHTML={{ __html: sectionType.svgContent }}
+            className="w-full h-20 rounded bg-muted/30 overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-full"
+            dangerouslySetInnerHTML={{ __html: sectionType.svgContent.replace(/width="280"\s+height="140"/, 'width="100%" height="auto"') }}
           />
         )}
         <input
@@ -167,8 +167,8 @@ function SectionTypeCard({
     <div className="rounded-lg border p-3 space-y-2 group hover:border-primary/50 transition-colors">
       {sectionType.svgContent ? (
         <div
-          className="w-full rounded bg-muted/30"
-          dangerouslySetInnerHTML={{ __html: sectionType.svgContent }}
+          className="w-full h-20 rounded bg-muted/30 overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-full"
+          dangerouslySetInnerHTML={{ __html: sectionType.svgContent.replace(/width="280"\s+height="140"/, 'width="100%" height="auto"') }}
         />
       ) : (
         <div className="w-full h-20 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">

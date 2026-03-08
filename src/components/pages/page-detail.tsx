@@ -166,8 +166,8 @@ export function PageDetail({ page, sectionTypes }: PageDetailProps) {
                     {/* SVG thumbnail */}
                     {matched?.svgContent ? (
                       <div
-                        className="w-24 shrink-0 rounded border bg-muted/30"
-                        dangerouslySetInnerHTML={{ __html: matched.svgContent }}
+                        className="w-24 h-14 shrink-0 rounded border bg-muted/30 overflow-hidden [&>svg]:w-full [&>svg]:h-auto"
+                        dangerouslySetInnerHTML={{ __html: matched.svgContent.replace(/width="280"\s+height="140"/, 'width="100%" height="auto"') }}
                       />
                     ) : (
                       <div className="w-24 h-14 shrink-0 rounded border bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
