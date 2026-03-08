@@ -1,4 +1,5 @@
 import { callClaudeWithImage } from "./anthropic";
+import type { UsageContext } from "./anthropic";
 import type { PageSection } from "@/types/page-sections";
 import { parsePageSections } from "@/types/page-sections";
 import { extractHtmlSections, formatHtmlSectionsForPrompt } from "./html-sections";
@@ -7,7 +8,8 @@ export async function detectPageSections(
   screenshotUrl: string,
   pageUrl: string,
   rawHtml?: string | null,
-  sectionTypes?: SectionTypeForPrompt[]
+  sectionTypes?: SectionTypeForPrompt[],
+  usage?: UsageContext
 ): Promise<PageSection[]> {
   // Extract HTML structure if available
   const htmlSections = rawHtml ? extractHtmlSections(rawHtml) : [];
@@ -22,7 +24,7 @@ export async function detectPageSections(
   const { text: response, meta } = await callClaudeWithImage(
     buildSectionPrompt(pageUrl, htmlContext, 0, sectionTypes),
     screenshotUrl,
-    { model: "claude-sonnet-4-6", returnMeta: true }
+    { model: "claude-sonnet-4-6", returnMeta: true, usage: { ...usage, step: usage?.step ?? "sections" } }
   );
 
   // Use the actual image height (post-resize) for coordinate conversion

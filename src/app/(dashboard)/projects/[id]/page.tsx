@@ -1,6 +1,9 @@
 import { getProject } from "@/actions/projects";
+import { getProjectCosts } from "@/actions/costs";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { DollarSign, Cpu, ArrowRight } from "lucide-react";
 
 export default async function ProjectOverviewPage({
   params,
@@ -8,7 +11,10 @@ export default async function ProjectOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = await getProject(id);
+  const [project, costs] = await Promise.all([
+    getProject(id),
+    getProjectCosts(id),
+  ]);
 
   if (!project) return notFound();
 
@@ -17,6 +23,14 @@ export default async function ProjectOverviewPage({
     notes?: string;
     excludePaths?: string[];
   } | null;
+
+  const STEP_LABELS: Record<string, string> = {
+    classification: "Classification",
+    scoring: "Content Scoring",
+    sections: "Section Detection",
+    report: "Report Generation",
+    unknown: "Other",
+  };
 
   return (
     <div className="space-y-6">
@@ -61,6 +75,81 @@ export default async function ProjectOverviewPage({
         <div>
           <p className="text-sm text-muted-foreground mb-1">Notes</p>
           <p className="text-sm">{settings.notes}</p>
+        </div>
+      )}
+
+      {/* API Cost Tracking */}
+      {costs.callCount > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">API Usage</h3>
+          <div className="grid grid-cols-3 gap-3 max-w-lg">
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">Total Cost</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">
+                  ${costs.totalCostUsd.toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <Cpu className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">API Calls</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">
+                  {costs.callCount}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">Tokens</span>
+                </div>
+                <p className="text-lg font-bold tabular-nums">
+                  {((costs.totalInputTokens + costs.totalOutputTokens) / 1000).toFixed(0)}k
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="rounded-lg border overflow-hidden max-w-lg">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Step</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Calls</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tokens</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {costs.byStep
+                  .sort((a, b) => b.costUsd - a.costUsd)
+                  .map((s) => (
+                    <tr key={s.step} className="border-b last:border-0">
+                      <td className="px-3 py-2">
+                        {STEP_LABELS[s.step] ?? s.step}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {s.callCount}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {((s.inputTokens + s.outputTokens) / 1000).toFixed(0)}k
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        ${s.costUsd.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

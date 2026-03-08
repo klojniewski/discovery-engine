@@ -4,12 +4,13 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
+import { getAllProjectCosts } from "@/actions/costs";
 
 export default async function ProjectsPage() {
-  const allProjects = await db
-    .select()
-    .from(projects)
-    .orderBy(desc(projects.createdAt));
+  const [allProjects, costMap] = await Promise.all([
+    db.select().from(projects).orderBy(desc(projects.createdAt)),
+    getAllProjectCosts(),
+  ]);
 
   return (
     <div>
@@ -47,24 +48,32 @@ export default async function ProjectsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {allProjects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}`}
-              className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-            >
-              <div>
-                <p className="font-medium">{project.clientName}</p>
-                <p className="text-sm text-muted-foreground">{project.websiteUrl}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">{project.status}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  {project.createdAt.toLocaleDateString("en-GB")}
-                </span>
-              </div>
-            </Link>
-          ))}
+          {allProjects.map((project) => {
+            const cost = costMap.get(project.id);
+            return (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+              >
+                <div>
+                  <p className="font-medium">{project.clientName}</p>
+                  <p className="text-sm text-muted-foreground">{project.websiteUrl}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {cost && cost.totalCostUsd > 0 && (
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      ${cost.totalCostUsd.toFixed(2)}
+                    </span>
+                  )}
+                  <Badge variant="outline">{project.status}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {project.createdAt.toLocaleDateString("en-GB")}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

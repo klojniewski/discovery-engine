@@ -36,14 +36,15 @@ interface ClassificationResult {
 }
 
 export async function classifyPages(
-  pages: PageInput[]
+  pages: PageInput[],
+  projectId?: string
 ): Promise<ClassificationResult[]> {
   // Batch in groups of 10
   const results: ClassificationResult[] = [];
 
   for (let i = 0; i < pages.length; i += 10) {
     const batch = pages.slice(i, i + 10);
-    const batchResults = await classifyBatch(batch);
+    const batchResults = await classifyBatch(batch, projectId);
     results.push(...batchResults);
   }
 
@@ -51,7 +52,8 @@ export async function classifyPages(
 }
 
 async function classifyBatch(
-  pages: PageInput[]
+  pages: PageInput[],
+  projectId?: string
 ): Promise<ClassificationResult[]> {
   const pagesDescription = pages
     .map(
@@ -79,7 +81,9 @@ Return a JSON array with exactly ${pages.length} objects. Each object must have:
 - "confidence": "high", "medium", or "low"
 - "reasoning": one sentence explanation`;
 
-  const response = await callClaude(prompt);
+  const response = await callClaude(prompt, {
+    usage: { projectId, step: "classification" },
+  });
 
   try {
     // Strip markdown fences if present

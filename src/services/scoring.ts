@@ -18,7 +18,8 @@ interface ScoringResult {
 }
 
 export async function scorePages(
-  pages: PageScoringInput[]
+  pages: PageScoringInput[],
+  projectId?: string
 ): Promise<ScoringResult[]> {
   // Mark duplicates immediately
   const duplicates = pages.filter((p) => p.isDuplicate);
@@ -36,14 +37,14 @@ export async function scorePages(
   const aiResults: ScoringResult[] = [];
   for (let i = 0; i < nonDuplicates.length; i += 15) {
     const batch = nonDuplicates.slice(i, i + 15);
-    const batchResults = await scoreBatch(batch);
+    const batchResults = await scoreBatch(batch, projectId);
     aiResults.push(...batchResults);
   }
 
   return [...duplicateResults, ...aiResults];
 }
 
-async function scoreBatch(pages: PageScoringInput[]): Promise<ScoringResult[]> {
+async function scoreBatch(pages: PageScoringInput[], projectId?: string): Promise<ScoringResult[]> {
   const pagesDescription = pages
     .map(
       (p, idx) =>
@@ -80,7 +81,9 @@ Return a JSON array with exactly ${pages.length} objects:
 - "tier": one of "must_migrate", "improve", "archive"
 - "reasoning": one sentence explaining why`;
 
-  const response = await callClaude(prompt);
+  const response = await callClaude(prompt, {
+    usage: { projectId, step: "scoring" },
+  });
 
   try {
     const cleaned = response

@@ -98,6 +98,7 @@ erDiagram
         boolean is_orphan
         boolean is_duplicate
         text content_hash
+        jsonb detected_sections
         jsonb metadata
         timestamp created_at
     }
@@ -115,22 +116,16 @@ erDiagram
         timestamp created_at
     }
 
-    COMPONENTS {
+    SECTION_TYPES {
         uuid id PK
-        uuid project_id FK
-        varchar type
-        text style_description
-        integer frequency
-        text screenshot_url
-        varchar position
-        varchar complexity
+        varchar slug UK
+        varchar name
+        varchar category
+        text description
+        text svg_content
+        integer sort_order
         timestamp created_at
-    }
-
-    COMPONENT_PAGES {
-        uuid id PK
-        uuid component_id FK
-        uuid page_id FK
+        timestamp updated_at
     }
 
     REPORT_SECTIONS {
@@ -146,18 +141,17 @@ erDiagram
 
     PROJECTS ||--o{ PAGES : "has many"
     PROJECTS ||--o{ TEMPLATES : "has many"
-    PROJECTS ||--o{ COMPONENTS : "has many"
     PROJECTS ||--o{ REPORT_SECTIONS : "has many"
     TEMPLATES ||--o{ PAGES : "groups"
-    COMPONENTS ||--o{ COMPONENT_PAGES : "has many"
-    PAGES ||--o{ COMPONENT_PAGES : "has many"
 ```
 
 **Key simplifications vs original:**
 - No `EMBEDDINGS` table (cut pgvector entirely)
 - No `LINKS` table (link data stored as JSONB in `pages.metadata` if needed)
 - No `REPORT_ANALYTICS` table (deferred)
-- Proper `COMPONENT_PAGES` join table instead of `uuid[]` array
+- **Replaced `COMPONENTS` + `COMPONENT_PAGES`** with taxonomy-driven `SECTION_TYPES` table + `pages.detected_sections` JSONB
+- Added `SECTION_TYPES` — 64 pre-seeded section types with slugs, categories, SVG wireframes
+- Added `pages.detected_sections` — JSONB storing AI-detected sections with taxonomy slugs per page
 - Added `REPORT_SECTIONS` for editable report content
 - Added `content_hash` on pages for simple duplicate detection
 
@@ -763,32 +757,32 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 
 ---
 
-## Phase 5: Polish, Testing & Deployment
+## Phase 5: Cleanup, Cost Tracking & Deployment
 
 **Duration:** 4-5 days
-**Milestone:** App deployed to production. Full E2E flow works reliably. Tested on 3+ sites. Ready for beta audits.
+**Milestone:** Old component system removed from DB, API costs tracked per audit, deployed to production. Ready for beta audits.
 
 ### Tasks
 
-#### 5.1 Error Handling & Resilience
+#### 5.1 Codebase & Schema Cleanup
+- [x] Delete orphaned component files:
+  - `src/components/analysis/component-inventory.tsx`
+  - `src/components/report/component-inventory-report.tsx`
+- [x] DB migration: drop `components` and `component_pages` tables (no longer used — replaced by `section_types` + `pages.detected_sections`)
+- [x] Remove `components` and `componentPages` exports from `src/db/schema.ts`
+- [x] Clean up any remaining references to old component system
+
+#### 5.2 API Cost Tracking
+- [x] Create `api_usage` table: `id`, `project_id`, `step` (classification/scoring/sections/report), `model`, `input_tokens`, `output_tokens`, `cost_usd`, `created_at`
+- [x] Instrument `callClaude` and `callClaudeWithImage` in `src/services/anthropic.ts` to log usage from API response (`usage.input_tokens`, `usage.output_tokens`)
+- [x] Track costs across retries and re-analysis batches (each API call logged individually, summed per project)
+- [x] Cost display on project overview: total cost, cost per step breakdown
+- [x] Cost per audit visible in project list
+
+#### 5.3 Error Handling & Resilience
 - [ ] Crawl failures: retry UI, error messages, partial crawl handling
 - [ ] Analysis failures: retry individual steps, skip non-critical failures gracefully
-- [ ] Report sections with missing data: show placeholder with "Data unavailable" message
 - [ ] Loading states and skeleton UIs for all async pages
-- [ ] Rate limiting on public report endpoint
-
-#### 5.2 Dashboard Polish
-- [ ] Project list: filter by status, sort by date, search by client name
-- [ ] Project overview page: stats cards, timeline of events, quick action buttons
-- [ ] Improve crawl progress visualization
-- [ ] Add cost tracking display (show API cost per audit on project overview)
-
-#### 5.3 Automated Tests
-- [ ] Unit tests for scoring logic (comprehensive edge cases)
-- [ ] Unit tests for classification logic (mock Claude, verify output handling)
-- [ ] Integration test: Inngest crawl function with mocked Firecrawl
-- [ ] Integration test: Inngest analysis function with mocked Claude
-- [ ] Validate Zod schemas reject malformed LLM output gracefully
 
 #### 5.4 Multi-Site Testing
 - [ ] Test full flow on 3 different site types:
@@ -803,7 +797,6 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
   - Configure environment variables
   - Set up custom domain
   - Connect to Supabase (production instance)
-- [ ] Configure Inngest in production (Vercel integration)
 - [ ] Run database migrations in production
 - [ ] Set up Sentry for error monitoring
 - [ ] Verify full flow works in production
@@ -812,19 +805,16 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 #### 5.6 Documentation
 - [ ] Update CLAUDE.md with final conventions
 - [ ] Internal team playbook: how to create a project, trigger crawl, review analysis, publish report
-- [ ] Document prompt templates and how to modify them
 
 ### Acceptance Criteria
+- [ ] `components` and `component_pages` tables dropped, no code references remain
+- [ ] API cost tracked per call, summed per project (including retries/re-runs)
+- [ ] Cost breakdown visible on project overview page
 - [ ] Full E2E flow completes without errors for pagepro.co in production
 - [ ] Error states handled gracefully with user-facing messages
-- [ ] Loading skeletons on all async pages
-- [ ] Tests pass: scoring, classification, pipeline integration
 - [ ] Tested on 3+ different websites successfully
 - [ ] App accessible at production URL with SSL
-- [ ] Inngest functions execute reliably in production
 - [ ] Sentry captures errors
-- [ ] Team playbook document complete
-- [ ] API cost per audit tracked and displayed
 
 ### Agent-Browser Verification
 ```
@@ -853,16 +843,20 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 |-------|-----------|--------|
 | 1 | Project boots, dashboard shell, DB, auth, first test | **Done** |
 | 2 | Firecrawl crawls pagepro.co, pages stored, 3-tab workflow (Crawl/Scrape/Analyse) | **Done** |
-| 3 | AI analysis: templates, scoring, components. Analysis dashboard. | **Done** |
-| 4 | 4-section report (data), preview, notes, publish, share link | **Done** |
-| 5 | Polish, tests, multi-site testing, deployed to production | Not started |
+| 3 | AI analysis: templates, scoring, sections. Analysis dashboard. | **Done** |
+| 4 | 5-section report (data), preview, notes, publish, share link | **Done** |
+| 5 | Cleanup, cost tracking, multi-site testing, deployment | In progress (5.1, 5.2 done) |
 
-**Progress: ~80% complete** (Phases 1-4 done, Phase 5 remaining)
+**Progress: ~85% complete** (Phases 1-4 done, Phase 5 remaining)
 
 ### Post-Phase 4 Improvements (Done)
 - Editable content tiers — manual tier override per page via dropdown in Analysis tab
 - Shared content preview panel — reusable component for Crawl and Scrape tabs with rendered markdown, backdrop overlay, toggle behavior
 - Cleaned up Scrape table — single content icon (FileText) instead of two (removed Code icon)
+- **Section Placeholder Library** — `section_types` table with 64 types, SVG wireframes, Settings CRUD UI
+- **Taxonomy-Driven Section Detection** — AI prompt uses DB taxonomy, returns slugs instead of free-form labels
+- **Replaced components with sections** — removed old component detection system, reports show Section Inventory instead of Component Inventory
+- **Image resize fix** — screenshots exceeding Claude's 8000px limit are automatically resized
 
 ---
 
@@ -870,6 +864,7 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 
 | Feature | Trigger to Add |
 |---------|---------------|
+| Report sections 5-7 (Technical Recommendations, Investment Summary, Next Steps) | After MVP validated — needs Claude Sonnet narrative generation |
 | Stripe payment collection | Business model validated, ready for self-service |
 | Landing page (public marketing) | Ready for inbound leads |
 | Email notifications (Resend) | Manual emails become a bottleneck |

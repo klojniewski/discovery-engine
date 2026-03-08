@@ -74,7 +74,7 @@ export async function runClassification(projectId: string) {
     contentPreview: p.rawMarkdown?.slice(0, 10000) ?? null,
   }));
 
-  const results = await classifyPages(pageInputs);
+  const results = await classifyPages(pageInputs, projectId);
 
   await updateStep(projectId, "classification", {
     completed: projectPages.length,
@@ -163,7 +163,7 @@ export async function runContentScoring(projectId: string) {
       : false,
   }));
 
-  const results = await scorePages(pageInputs);
+  const results = await scorePages(pageInputs, projectId);
 
   let scored = 0;
   for (const result of results) {
@@ -219,7 +219,8 @@ export async function runSectionDetection(projectId: string) {
         page.screenshotUrl!,
         page.url,
         page.rawHtml,
-        allSectionTypes
+        allSectionTypes,
+        { projectId }
       );
 
       await db
@@ -354,7 +355,7 @@ export async function runPageDetection(pageId: string) {
     .from(sectionTypesTable)
     .orderBy(asc(sectionTypesTable.sortOrder));
 
-  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml, allSectionTypes);
+  const sections = await detectPageSections(page.screenshotUrl, page.url, page.rawHtml, allSectionTypes, { projectId: page.projectId });
 
   await db
     .update(pages)

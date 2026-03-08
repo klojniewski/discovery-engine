@@ -1,13 +1,60 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "@/db";
+import { apiUsage } from "@/db/schema";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
+// Pricing per million tokens (as of 2026-03)
+const PRICING: Record<string, { input: number; output: number }> = {
+  "claude-haiku-4-5-20251001": { input: 0.80, output: 4.00 },
+  "claude-sonnet-4-6": { input: 3.00, output: 15.00 },
+};
+
+function calculateCostMicros(
+  model: string,
+  inputTokens: number,
+  outputTokens: number
+): number {
+  const pricing = PRICING[model] ?? { input: 3.0, output: 15.0 };
+  const costUsd =
+    (inputTokens / 1_000_000) * pricing.input +
+    (outputTokens / 1_000_000) * pricing.output;
+  return Math.round(costUsd * 1_000_000); // store as microdollars for integer precision
+}
+
+async function logApiUsage(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  projectId?: string,
+  step?: string
+) {
+  try {
+    await db.insert(apiUsage).values({
+      projectId: projectId ?? null,
+      step: step ?? "unknown",
+      model,
+      inputTokens,
+      outputTokens,
+      costUsd: calculateCostMicros(model, inputTokens, outputTokens),
+    });
+  } catch (err) {
+    console.error("Failed to log API usage:", err);
+  }
+}
+
+export interface UsageContext {
+  projectId?: string;
+  step?: string;
+}
+
 interface ClaudeOptions {
   model?: "claude-haiku-4-5-20251001" | "claude-sonnet-4-6";
   maxTokens?: number;
   system?: string;
+  usage?: UsageContext;
 }
 
 export async function callClaude(
@@ -18,6 +65,7 @@ export async function callClaude(
     model = "claude-haiku-4-5-20251001",
     maxTokens = 4096,
     system,
+    usage,
   } = options;
 
   const response = await client.messages.create({
@@ -26,6 +74,14 @@ export async function callClaude(
     system: system ?? "You are an expert web analyst. Respond with valid JSON only, no markdown fences.",
     messages: [{ role: "user", content: prompt }],
   });
+
+  await logApiUsage(
+    model,
+    response.usage.input_tokens,
+    response.usage.output_tokens,
+    usage?.projectId,
+    usage?.step
+  );
 
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock?.text ?? "";
@@ -55,6 +111,7 @@ export async function callClaudeWithImage(
     model = "claude-sonnet-4-6",
     maxTokens = 4096,
     system,
+    usage,
   } = options;
 
   // Fetch image, resize if needed (Claude max 8000px per dimension), convert to base64
@@ -115,6 +172,14 @@ export async function callClaudeWithImage(
       },
     ],
   });
+
+  await logApiUsage(
+    model,
+    response.usage.input_tokens,
+    response.usage.output_tokens,
+    usage?.projectId,
+    usage?.step
+  );
 
   const textBlock = response.content.find((b) => b.type === "text");
   const text = textBlock?.text ?? "";
