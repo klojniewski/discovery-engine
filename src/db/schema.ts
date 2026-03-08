@@ -76,30 +76,6 @@ export const pages = pgTable("pages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const components = pgTable("components", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 100 }).notNull(),
-  styleDescription: text("style_description"),
-  frequency: integer("frequency").default(0),
-  screenshotUrl: text("screenshot_url"),
-  position: varchar("position", { length: 50 }),
-  complexity: varchar("complexity", { length: 50 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const componentPages = pgTable("component_pages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  componentId: uuid("component_id")
-    .notNull()
-    .references(() => components.id, { onDelete: "cascade" }),
-  pageId: uuid("page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-});
-
 export const sectionTypes = pgTable("section_types", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
