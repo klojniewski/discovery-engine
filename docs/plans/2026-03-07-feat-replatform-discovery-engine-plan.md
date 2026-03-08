@@ -780,9 +780,9 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 - [x] Cost per audit visible in project list
 
 #### 5.3 Error Handling & Resilience
-- [ ] Crawl failures: retry UI, error messages, partial crawl handling
-- [ ] Analysis failures: retry individual steps, skip non-critical failures gracefully
-- [ ] Loading states and skeleton UIs for all async pages
+- [x] Crawl failures: retry UI, error messages, partial crawl handling
+- [x] Analysis failures: retry individual steps, skip non-critical failures gracefully
+- [x] Loading states and skeleton UIs for all async pages
 
 #### 5.4 Multi-Site Testing
 - [ ] Test full flow on 3 different site types:
