@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { projects, pages } from "@/db/schema";
+import { projects, pages, templates } from "@/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   startCrawl as firecrawlStart,
@@ -335,6 +335,42 @@ export async function getProjectPagesPaginated(
     perPage,
     totalPages: Math.ceil(total / perPage),
   };
+}
+
+export async function getProjectPagesForTree(projectId: string) {
+  const items = await db
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+      wordCount: pages.wordCount,
+      contentTier: pages.contentTier,
+      templateId: pages.templateId,
+      excluded: pages.excluded,
+      rawMarkdown: pages.rawMarkdown,
+    })
+    .from(pages)
+    .where(eq(pages.projectId, projectId))
+    .orderBy(pages.url);
+
+  // Get template names for display
+  const projectTemplates = await db
+    .select({
+      id: templates.id,
+      displayName: templates.displayName,
+      name: templates.name,
+    })
+    .from(templates)
+    .where(eq(templates.projectId, projectId));
+
+  const templateMap = new Map(
+    projectTemplates.map((t) => [t.id, t.displayName || t.name])
+  );
+
+  return items.map((p) => ({
+    ...p,
+    templateName: p.templateId ? templateMap.get(p.templateId) ?? null : null,
+  }));
 }
 
 export async function getProjectStats(projectId: string) {

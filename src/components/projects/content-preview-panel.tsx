@@ -52,7 +52,7 @@ export function ContentPreviewPanel({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          <article className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground prose-li:text-muted-foreground">
+          <article className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:border-b prose-headings:border-border prose-headings:pb-1.5 prose-h1:text-lg prose-h1:font-bold prose-h1:border-b-2 prose-h2:text-base prose-h2:font-semibold prose-h3:text-sm prose-h3:font-semibold prose-h3:border-b-0 prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground prose-li:text-muted-foreground prose-hr:border-border prose-blockquote:border-primary/30 prose-blockquote:text-muted-foreground prose-code:text-xs prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-img:rounded-md prose-img:border prose-img:border-border">
             <ReactMarkdown>
               {page.rawMarkdown || "No content available."}
             </ReactMarkdown>
