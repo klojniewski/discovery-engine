@@ -145,6 +145,20 @@ function TreeNodeRow({
     [node.children]
   );
 
+  // Leaf folder with exactly 1 page — render as a page row directly, skip folder
+  const isLeafWithOnePage =
+    node.segment !== "/" && !hasChildren && node.pages.length === 1;
+
+  if (isLeafWithOnePage) {
+    return (
+      <PageRow
+        page={node.pages[0]}
+        depth={depth}
+        onSelect={onSelectPage}
+      />
+    );
+  }
+
   return (
     <>
       {/* Folder row */}
