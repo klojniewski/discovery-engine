@@ -324,7 +324,6 @@ function TreemapView({
         const bg = TIER_BG[tier] ?? TIER_BG.improve;
         const border = TIER_BORDER[tier] ?? TIER_BORDER.improve;
         const text = TIER_TEXT[tier] ?? TIER_TEXT.improve;
-        const hasChildren = rect.node.children.length > 0;
         const isLarge = rect.w > 120 && rect.h > 60;
         const isMedium = rect.w > 80 && rect.h > 40;
         const isTiny = rect.w < 60 || rect.h < 30;
@@ -344,10 +343,10 @@ function TreemapView({
               borderStyle: "solid",
               borderRadius: 6,
               color: text,
-              cursor: hasChildren ? "pointer" : "default",
+              cursor: "pointer",
               padding: isTiny ? 2 : isLarge ? 12 : 6,
             }}
-            onClick={() => hasChildren && onDrillDown(rect.node)}
+            onClick={() => onDrillDown(rect.node)}
             title={`${rect.node.fullPath}\n${rect.node.totalPages} pages · ${rect.node.totalWords.toLocaleString()} words`}
           >
             <div className="flex flex-col h-full justify-between min-w-0">
@@ -487,7 +486,20 @@ export function SitemapTreemap({
   }
 
   const displayChildren = currentNode.children;
-  const directPages = currentNode.pages;
+
+  // When drilling into a leaf folder (no children), collect all pages recursively
+  const allPagesInSubtree = useMemo(() => {
+    if (currentNode.children.length > 0) return currentNode.pages;
+    const collected: PageItem[] = [];
+    function collect(node: TreemapNode) {
+      collected.push(...node.pages);
+      for (const child of node.children) collect(child);
+    }
+    collect(currentNode);
+    return collected;
+  }, [currentNode]);
+
+  const directPages = allPagesInSubtree;
 
   // Use full available width, fixed aspect ratio
   const treemapWidth = 1100;
