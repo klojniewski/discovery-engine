@@ -592,7 +592,7 @@ export function SitemapTreemap({
                 className={`hover:underline ${i === drillStack.length - 1 ? "text-foreground font-medium" : ""}`}
                 onClick={() => updatePath(node.fullPath)}
               >
-                {node.segment === "/" ? "/ (root)" : node.segment}
+                {node.segment === "/" ? "/ (Root)" : node.segment}
               </button>
             </span>
           ))}
