@@ -487,9 +487,8 @@ export function SitemapTreemap({
 
   const displayChildren = currentNode.children;
 
-  // When drilling into a leaf folder (no children), collect all pages recursively
+  // Collect all pages recursively from current node's subtree
   const allPagesInSubtree = useMemo(() => {
-    if (currentNode.children.length > 0) return currentNode.pages;
     const collected: PageItem[] = [];
     function collect(node: TreemapNode) {
       collected.push(...node.pages);
@@ -498,8 +497,6 @@ export function SitemapTreemap({
     collect(currentNode);
     return collected;
   }, [currentNode]);
-
-  const directPages = allPagesInSubtree;
 
   // Use full available width, fixed aspect ratio
   const treemapWidth = 1100;
@@ -566,16 +563,16 @@ export function SitemapTreemap({
         </div>
       )}
 
-      {/* Direct pages */}
-      {directPages.length > 0 && (
+      {/* All pages in this subtree */}
+      {allPagesInSubtree.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-2">
-            Pages in {currentNode.fullPath}
+            All pages in {currentNode.fullPath || "/"}
             <span className="text-muted-foreground font-normal ml-1">
-              ({directPages.length})
+              ({allPagesInSubtree.length})
             </span>
           </h3>
-          <PageList pages={directPages} projectId={projectId} />
+          <PageList pages={allPagesInSubtree} projectId={projectId} />
         </div>
       )}
     </div>
