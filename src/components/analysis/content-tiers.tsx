@@ -174,10 +174,13 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
         </div>
         <div className="flex flex-wrap gap-4 text-xs">
           {Object.entries(TIER_CONFIG).map(([key, config]) => (
-            <button
+            <div
               key={key}
+              role="button"
+              tabIndex={0}
               className={`flex items-center gap-1.5 cursor-pointer hover:opacity-70 ${filterTier === key ? "ring-2 ring-primary rounded-md px-1 -mx-1" : ""}`}
               onClick={() => handleFilterChange(filterTier === key ? "all" : key)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleFilterChange(filterTier === key ? "all" : key); }}
             >
               <div className={`w-3 h-3 rounded-sm ${config.color}`} />
               <span>
@@ -191,7 +194,7 @@ export function ContentTiers({ pages }: { pages: PageWithTier[] }) {
                   {config.tooltip}
                 </TooltipContent>
               </Tooltip>
-            </button>
+            </div>
           ))}
         </div>
       </div>
