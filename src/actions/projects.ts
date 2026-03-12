@@ -108,8 +108,8 @@ export async function startProjectCrawl(projectId: string) {
     excludePaths?: string[];
   } | null;
 
-  // Always exclude non-HTML resources from crawl
-  const defaultExcludes = ["*.pdf", "*.zip", "*.doc", "*.docx", "*.xls", "*.xlsx", "*.ppt", "*.pptx"];
+  // Always exclude non-HTML resources from crawl (Firecrawl excludePaths uses regex on URL pathname)
+  const defaultExcludes = [".*\\.pdf$", ".*\\.zip$", ".*\\.docx?$", ".*\\.xlsx?$", ".*\\.pptx?$"];
   const userExcludes = settings?.excludePaths ?? [];
   const allExcludes = [...defaultExcludes, ...userExcludes];
 
