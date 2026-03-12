@@ -534,9 +534,18 @@ export function SitemapTreemap({
 
   const displayChildren = currentNode.children;
 
-  // At root: show only direct pages. Elsewhere: show all pages in subtree.
+  // At root: show pages with single-segment paths (e.g. /about, /contact).
+  // Elsewhere: show all pages in subtree recursively.
   const displayPages = useMemo(() => {
-    if (currentNode.fullPath === "/") return currentNode.pages;
+    if (currentNode.fullPath === "/") {
+      const all: PageItem[] = [];
+      // Direct root pages (/) plus one page from each immediate child
+      all.push(...currentNode.pages);
+      for (const child of currentNode.children) {
+        all.push(...child.pages);
+      }
+      return all;
+    }
     const collected: PageItem[] = [];
     function collect(node: TreemapNode) {
       collected.push(...node.pages);
