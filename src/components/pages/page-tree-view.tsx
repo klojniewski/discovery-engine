@@ -235,10 +235,10 @@ function PageRow({
   return (
     <div
       className="flex items-center gap-1.5 py-1 px-2 hover:bg-muted/30 rounded-md text-sm group cursor-pointer"
-      style={{ paddingLeft: `${(depth + 1) * 20 + 8}px` }}
+      style={{ paddingLeft: `${depth * 20 + 8}px` }}
       onClick={() => onSelect(page)}
     >
-      <span className="w-4.5 shrink-0" />
+      <span className="inline-block w-3.5 h-3.5 shrink-0" />
       <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       <span
         className="text-primary truncate"
