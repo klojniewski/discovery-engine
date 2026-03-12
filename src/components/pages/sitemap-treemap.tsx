@@ -534,8 +534,9 @@ export function SitemapTreemap({
 
   const displayChildren = currentNode.children;
 
-  // Collect all pages recursively from the current subtree
-  const allPages = useMemo(() => {
+  // At root: show only direct pages. Elsewhere: show all pages in subtree.
+  const displayPages = useMemo(() => {
+    if (currentNode.fullPath === "/") return currentNode.pages;
     const collected: PageItem[] = [];
     function collect(node: TreemapNode) {
       collected.push(...node.pages);
@@ -547,8 +548,8 @@ export function SitemapTreemap({
 
   const PAGE_SIZE = 50;
   const listPage = Number(searchParams.get("lp") ?? "1");
-  const totalListPages = Math.ceil(allPages.length / PAGE_SIZE);
-  const paginatedPages = allPages.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
+  const totalListPages = Math.ceil(displayPages.length / PAGE_SIZE);
+  const paginatedPages = displayPages.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
 
   function setListPage(page: number) {
     const params = new URLSearchParams(searchParams.toString());
@@ -626,19 +627,19 @@ export function SitemapTreemap({
       )}
 
       {/* All pages in subtree */}
-      {allPages.length > 0 && (
+      {displayPages.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-2">
             Pages in {currentNode.fullPath || "/"}
             <span className="text-muted-foreground font-normal ml-1">
-              ({allPages.length})
+              ({displayPages.length})
             </span>
           </h3>
           <PageList pages={paginatedPages} projectId={projectId} />
           {totalListPages > 1 && (
             <div className="flex items-center justify-between mt-3">
               <p className="text-sm text-muted-foreground">
-                Showing {(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, allPages.length)} of {allPages.length}
+                Showing {(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, displayPages.length)} of {displayPages.length}
               </p>
               <div className="flex items-center gap-1">
                 <Button
