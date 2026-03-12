@@ -289,6 +289,18 @@ export async function getProjectPages(projectId: string) {
     .where(eq(pages.projectId, projectId));
 }
 
+export async function getProjectPagesForExport(projectId: string) {
+  return db
+    .select({
+      url: pages.url,
+      title: pages.title,
+      wordCount: pages.wordCount,
+    })
+    .from(pages)
+    .where(eq(pages.projectId, projectId))
+    .orderBy(pages.url);
+}
+
 export async function getProjectPagesPaginated(
   projectId: string,
   page: number = 1,

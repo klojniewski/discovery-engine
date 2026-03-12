@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, FileText, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { Download, FileText, ChevronLeft, ChevronRight, Search, X, Loader2 } from "lucide-react";
 import { ContentPreviewPanel } from "./content-preview-panel";
+import { getProjectPagesForExport } from "@/actions/projects";
 
 interface CrawlPage {
   id: string;
@@ -58,22 +59,30 @@ export function CrawlResultsTable({
     return `/projects/${projectId}/crawl?${params.toString()}`;
   }
 
-  function exportCsv() {
-    const header = "URL,Title,Word Count";
-    const rows = pages.map((p) => {
-      const title = (p.title ?? "").replace(/"/g, '""');
-      return `"${p.url}","${title}",${p.wordCount ?? ""}`;
-    });
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const slug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const date = new Date().toISOString().slice(0, 10);
-    a.download = `${slug}-crawl-${date}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const allPages = await getProjectPagesForExport(projectId);
+      const header = "URL,Title,Word Count";
+      const rows = allPages.map((p) => {
+        const title = (p.title ?? "").replace(/"/g, '""');
+        return `"${p.url}","${title}",${p.wordCount ?? ""}`;
+      });
+      const csv = [header, ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const slug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `${slug}-crawl-${date}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const startItem = (currentPage - 1) * 50 + 1;
@@ -90,9 +99,13 @@ export function CrawlResultsTable({
             </span>
           )}
         </h3>
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="h-4 w-4 mr-1" />
-          Export CSV
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting}>
+          {exporting ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-1" />
+          )}
+          {exporting ? "Exporting..." : "Export CSV"}
         </Button>
       </div>
 
