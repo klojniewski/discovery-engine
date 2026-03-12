@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -474,15 +475,61 @@ export function SitemapTreemap({
   projectId: string;
 }) {
   const rootNode = useMemo(() => buildTreemapData(pages), [pages]);
-  const [drillStack, setDrillStack] = useState<TreemapNode[]>([rootNode]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathParam = searchParams.get("path") ?? "/";
+
+  // Build drill stack from URL path param by walking the tree
+  const drillStack = useMemo(() => {
+    if (pathParam === "/") return [rootNode];
+
+    const segments = pathParam.split("/").filter(Boolean);
+    const stack: TreemapNode[] = [rootNode];
+    let current = rootNode;
+
+    for (let i = 0; i < segments.length; i++) {
+      const targetPath = "/" + segments.slice(0, i + 1).join("/");
+      const child = current.children.find((c) => {
+        // Handle collapsed segments (e.g. "blog/category")
+        return c.fullPath === targetPath || targetPath.startsWith(c.fullPath);
+      });
+      if (!child) break;
+      stack.push(child);
+      current = child;
+      // If the child's fullPath is longer (collapsed), skip ahead
+      if (child.fullPath !== targetPath) {
+        break;
+      }
+    }
+    return stack;
+  }, [rootNode, pathParam]);
+
   const currentNode = drillStack[drillStack.length - 1];
 
+  const updatePath = useCallback(
+    (path: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (path === "/") {
+        params.delete("path");
+      } else {
+        params.set("path", path);
+      }
+      params.delete("lp"); // reset list page
+      const qs = params.toString();
+      router.push(`?${qs}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   function drillDown(node: TreemapNode) {
-    setDrillStack((prev) => [...prev, node]);
+    updatePath(node.fullPath);
   }
 
   function drillUp() {
-    setDrillStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+    if (drillStack.length > 1) {
+      const parent = drillStack[drillStack.length - 2];
+      updatePath(parent.fullPath);
+    }
   }
 
   const displayChildren = currentNode.children;
@@ -499,16 +546,19 @@ export function SitemapTreemap({
   }, [currentNode]);
 
   const PAGE_SIZE = 50;
-  const [listPage, setListPage] = useState(1);
-  // Reset page when drilling
-  const currentPath = currentNode.fullPath;
-  const [prevPath, setPrevPath] = useState(currentPath);
-  if (currentPath !== prevPath) {
-    setPrevPath(currentPath);
-    setListPage(1);
-  }
+  const listPage = Number(searchParams.get("lp") ?? "1");
   const totalListPages = Math.ceil(allPages.length / PAGE_SIZE);
   const paginatedPages = allPages.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
+
+  function setListPage(page: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (page <= 1) {
+      params.delete("lp");
+    } else {
+      params.set("lp", String(page));
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  }
 
   // Use full available width, fixed aspect ratio
   const treemapWidth = 1100;
@@ -530,7 +580,7 @@ export function SitemapTreemap({
               {i > 0 && <span className="opacity-40">/</span>}
               <button
                 className={`hover:underline ${i === drillStack.length - 1 ? "text-foreground font-medium" : ""}`}
-                onClick={() => setDrillStack(drillStack.slice(0, i + 1))}
+                onClick={() => updatePath(node.fullPath)}
               >
                 {node.segment}
               </button>
@@ -595,7 +645,7 @@ export function SitemapTreemap({
                   variant="outline"
                   size="sm"
                   disabled={listPage <= 1}
-                  onClick={() => setListPage((p) => p - 1)}
+                  onClick={() => setListPage(listPage - 1)}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -606,7 +656,7 @@ export function SitemapTreemap({
                   variant="outline"
                   size="sm"
                   disabled={listPage >= totalListPages}
-                  onClick={() => setListPage((p) => p + 1)}
+                  onClick={() => setListPage(listPage + 1)}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
