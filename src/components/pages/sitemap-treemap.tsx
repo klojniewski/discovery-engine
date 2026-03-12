@@ -487,8 +487,9 @@ export function SitemapTreemap({
 
   const displayChildren = currentNode.children;
 
-  // Collect all pages recursively from current node's subtree
-  const allPagesInSubtree = useMemo(() => {
+  // For leaf folders (no children), collect pages recursively; otherwise just direct pages
+  const displayPages = useMemo(() => {
+    if (currentNode.children.length > 0) return currentNode.pages;
     const collected: PageItem[] = [];
     function collect(node: TreemapNode) {
       collected.push(...node.pages);
@@ -563,16 +564,16 @@ export function SitemapTreemap({
         </div>
       )}
 
-      {/* All pages in this subtree */}
-      {allPagesInSubtree.length > 0 && (
+      {/* Pages at this level (or all pages recursively for leaf folders) */}
+      {displayPages.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-2">
-            All pages in {currentNode.fullPath || "/"}
+            Pages in {currentNode.fullPath || "/"}
             <span className="text-muted-foreground font-normal ml-1">
-              ({allPagesInSubtree.length})
+              ({displayPages.length})
             </span>
           </h3>
-          <PageList pages={allPagesInSubtree} projectId={projectId} />
+          <PageList pages={displayPages} projectId={projectId} />
         </div>
       )}
     </div>
