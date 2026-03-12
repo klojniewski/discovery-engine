@@ -227,7 +227,7 @@ function PageRow({
   try {
     const { pathname } = new URL(page.url);
     const parts = pathname.split("/").filter(Boolean);
-    slug = parts[parts.length - 1] || "/";
+    slug = parts[parts.length - 1] || "/ (homepage)";
   } catch {
     slug = page.url;
   }
