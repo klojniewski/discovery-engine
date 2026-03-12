@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PageItem {
   id: string;
@@ -487,9 +487,8 @@ export function SitemapTreemap({
 
   const displayChildren = currentNode.children;
 
-  // For leaf folders (no children), collect pages recursively; otherwise just direct pages
-  const displayPages = useMemo(() => {
-    if (currentNode.children.length > 0) return currentNode.pages;
+  // Collect all pages recursively from the current subtree
+  const allPages = useMemo(() => {
     const collected: PageItem[] = [];
     function collect(node: TreemapNode) {
       collected.push(...node.pages);
@@ -498,6 +497,18 @@ export function SitemapTreemap({
     collect(currentNode);
     return collected;
   }, [currentNode]);
+
+  const PAGE_SIZE = 50;
+  const [listPage, setListPage] = useState(1);
+  // Reset page when drilling
+  const currentPath = currentNode.fullPath;
+  const [prevPath, setPrevPath] = useState(currentPath);
+  if (currentPath !== prevPath) {
+    setPrevPath(currentPath);
+    setListPage(1);
+  }
+  const totalListPages = Math.ceil(allPages.length / PAGE_SIZE);
+  const paginatedPages = allPages.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
 
   // Use full available width, fixed aspect ratio
   const treemapWidth = 1100;
@@ -564,16 +575,44 @@ export function SitemapTreemap({
         </div>
       )}
 
-      {/* Pages at this level (or all pages recursively for leaf folders) */}
-      {displayPages.length > 0 && (
+      {/* All pages in subtree */}
+      {allPages.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-2">
             Pages in {currentNode.fullPath || "/"}
             <span className="text-muted-foreground font-normal ml-1">
-              ({displayPages.length})
+              ({allPages.length})
             </span>
           </h3>
-          <PageList pages={displayPages} projectId={projectId} />
+          <PageList pages={paginatedPages} projectId={projectId} />
+          {totalListPages > 1 && (
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-sm text-muted-foreground">
+                Showing {(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, allPages.length)} of {allPages.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={listPage <= 1}
+                  onClick={() => setListPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm px-2">
+                  {listPage} / {totalListPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={listPage >= totalListPages}
+                  onClick={() => setListPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
