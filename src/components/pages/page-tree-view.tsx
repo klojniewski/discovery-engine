@@ -206,6 +206,7 @@ function TreeNodeRow({
             page={page}
             depth={node.segment === "/" ? 0 : depth + 1}
             onSelect={onSelectPage}
+            parentSegment={node.segment === "/" ? undefined : node.segment}
           />
         ))}
 
@@ -228,20 +229,28 @@ function PageRow({
   page,
   depth,
   onSelect,
+  parentSegment,
 }: {
   page: PageItem;
   depth: number;
   onSelect: (page: PageItem) => void;
+  parentSegment?: string;
 }) {
   const tierConfig = page.contentTier
     ? { color: TIER_COLORS[page.contentTier], label: TIER_LABELS[page.contentTier] }
     : null;
 
   let slug: string;
+  let isIndex = false;
   try {
     const { pathname } = new URL(page.url);
     const parts = pathname.split("/").filter(Boolean);
     slug = parts[parts.length - 1] || "/ (homepage)";
+    // Index page: the page's slug matches its parent folder name
+    // e.g. /contact page inside /contact folder, or /terms page inside /terms folder
+    if (parentSegment && slug === parentSegment) {
+      isIndex = true;
+    }
   } catch {
     slug = page.url;
   }
@@ -258,7 +267,7 @@ function PageRow({
         className="text-primary truncate"
         title={page.url}
       >
-        {slug}
+        {slug}{isIndex && <span className="text-muted-foreground font-normal ml-1">(index)</span>}
       </span>
       {page.title && (
         <span className="text-xs text-muted-foreground truncate hidden group-hover:inline">
