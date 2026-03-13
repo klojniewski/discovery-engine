@@ -261,6 +261,20 @@ Users might want to screenshot more than just the auto-selected representative p
 - [x] Content Tiers table: pagination (50/page) and tier filtering
 - [x] Template pages modal: truncated URLs with ... and proper link styling
 
+### Pages & Sitemap Visualization (added 2026-03-13)
+- [x] Pages tab: list view with content preview side panel (click row to open)
+- [x] Pages tab: tree view with collapsible folders, tier badges, word counts
+- [x] Tree view: (index) suffix on index pages, leaf folders collapsed to single row
+- [x] Tree view: content preview side panel on page click (arrows for expand/collapse)
+- [x] Visual Sitemap: squarified treemap sized by page count, colored by dominant tier
+- [x] Visual Sitemap: drill-down navigation with breadcrumb, URL synced to search params
+- [x] Visual Sitemap: paginated page list (50/page) below treemap showing subtree pages
+- [x] Visual Sitemap: root level shows first-level pages only
+- [x] Content preview panel: resizable via drag handle (320px–90vw)
+- [x] Content preview panel: rendered markdown with explicit CSS styles
+- [x] CSV export: now fetches all pages server-side (not just current page)
+- [x] Removed deprecated `src/services/scoring.ts` (merged into classification.ts)
+
 ### Non-Functional
 - [ ] Classification + scoring for 1000 pages completes in < 5 minutes
 - [ ] Screenshot capture for 25 pages completes in < 5 minutes
@@ -299,7 +313,7 @@ Users might want to screenshot more than just the auto-selected representative p
 - `src/actions/analysis.ts` — Analysis pipeline orchestration
 - `src/actions/projects.ts` — Crawl, scrape, page management
 - `src/services/classification.ts` — Haiku classification (batches of 10)
-- `src/services/scoring.ts` — DEPRECATED: scoring merged into classification.ts
+- `src/services/scoring.ts` — DELETED: scoring merged into classification.ts
 - `src/services/components.ts` — `detectPageSections()` Sonnet vision
 - `src/services/screenshots.ts` — Firecrawl screenshot capture
 - `src/services/anthropic.ts` — `callClaude()`, `callClaudeWithImage()`, usage logging

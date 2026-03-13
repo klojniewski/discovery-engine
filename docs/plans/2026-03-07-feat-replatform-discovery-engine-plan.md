@@ -845,9 +845,9 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 | 2 | Firecrawl crawls pagepro.co, pages stored, 3-tab workflow (Crawl/Scrape/Analyse) | **Done** |
 | 3 | AI analysis: templates, scoring, sections. Analysis dashboard. | **Done** |
 | 4 | 5-section report (data), preview, notes, publish, share link | **Done** |
-| 5 | Cleanup, cost tracking, multi-site testing, deployment | In progress (5.1-5.3 done) |
+| 5 | Cleanup, cost tracking, multi-site testing, deployment | In progress (5.1-5.3 done, 5.4-5.6 remaining) |
 
-**Progress: ~85% complete** (Phases 1-4 done, Phase 5 remaining)
+**Progress: ~90% complete** (Phases 1-4 done + major UX improvements, Phase 5.4-5.6 remaining)
 
 ### Post-Phase 4 Improvements (Done)
 - Editable content tiers — manual tier override per page via dropdown in Analysis tab
@@ -857,6 +857,14 @@ app/(public)/reports/[shareId]/page.tsx  -- public report viewer
 - **Taxonomy-Driven Section Detection** — AI prompt uses DB taxonomy, returns slugs instead of free-form labels
 - **Replaced components with sections** — removed old component detection system, reports show Section Inventory instead of Component Inventory
 - **Image resize fix** — screenshots exceeding Claude's 8000px limit are automatically resized
+- **Smart Analysis Pipeline** — classification + scoring merged into single API call, run directly after crawl (no scrape step)
+- **Scoring improvements** — legal pages correctly classified as must_migrate; PDF/binary filtering at Firecrawl level
+- **Content Tiers** — pagination (50/page) and tier filtering via clickable breakdown bar
+- **Crawl improvements** — search/filter, CSV export all pages, URL dedup, junk URL filtering
+- **Pages tab** — list view, tree view (collapsible folders, index page labels), visual sitemap (squarified treemap with drill-down)
+- **Content preview panel** — rendered markdown, resizable via drag handle, used in list/tree/crawl views
+- **Visual Sitemap** — treemap sized by page count, colored by tier, drill-down with URL-synced breadcrumbs, paginated page list
+- **Removed deprecated code** — `scoring.ts` deleted, `components`/`component_pages` tables dropped, orphaned component files deleted
 
 ---
 
