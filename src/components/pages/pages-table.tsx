@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { ContentPreviewPanel } from "@/components/projects/content-preview-panel";
 
 interface PageRow {
@@ -10,6 +11,8 @@ interface PageRow {
   title: string | null;
   wordCount: number | null;
   rawMarkdown: string | null;
+  seoScore?: number | null;
+  isRedirectCritical?: boolean | null;
 }
 
 export function PagesTable({
@@ -20,6 +23,7 @@ export function PagesTable({
   projectId: string;
 }) {
   const [previewPage, setPreviewPage] = useState<PageRow | null>(null);
+  const hasSeoScores = pages.some((p) => p.seoScore != null);
 
   return (
     <>
@@ -30,6 +34,9 @@ export function PagesTable({
               <th className="text-left p-3 font-medium">URL</th>
               <th className="text-left p-3 font-medium">Title</th>
               <th className="text-right p-3 font-medium">Words</th>
+              {hasSeoScores && (
+                <th className="text-right p-3 font-medium">SEO</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -54,6 +61,35 @@ export function PagesTable({
                 <td className="p-3 text-right tabular-nums">
                   {page.wordCount ?? "\u2014"}
                 </td>
+                {hasSeoScores && (
+                  <td className="p-3 text-right">
+                    {page.seoScore != null ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        {page.isRedirectCritical && (
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            Critical
+                          </Badge>
+                        )}
+                        <span
+                          className={`tabular-nums font-medium ${
+                            page.seoScore >= 50
+                              ? "text-red-600"
+                              : page.seoScore >= 25
+                                ? "text-amber-600"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {page.seoScore}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">{"\u2014"}</span>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -312,6 +312,8 @@ export async function getProjectPagesPaginated(
         title: pages.title,
         wordCount: pages.wordCount,
         rawMarkdown: pages.rawMarkdown,
+        seoScore: pages.seoScore,
+        isRedirectCritical: pages.isRedirectCritical,
       })
       .from(pages)
       .where(where)
