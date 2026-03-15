@@ -303,6 +303,136 @@ export async function clearAhrefsData(
   await updateProjectSettings(projectId, null, { ahrefsUploads: uploads });
 }
 
+export async function getSeoStatus(projectId: string) {
+  const [project] = await db
+    .select({ settings: projects.settings })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!project) throw new Error("Project not found");
+
+  const settings = project.settings as Record<string, unknown> | null;
+
+  // Count pages with on-page extraction
+  const [extractionCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.canonicalUrl))
+    );
+
+  // Count pages with PSI scores
+  const [psiCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.psiScoreMobile))
+    );
+
+  // Count pages with SEO scores
+  const [scoredCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.seoScore))
+    );
+
+  // Count redirect-critical pages
+  const [criticalCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), eq(pages.isRedirectCritical, true))
+    );
+
+  return {
+    seoExtractionComplete: !!settings?.seoExtractionComplete,
+    seoExtractionProgress: settings?.seoExtractionProgress as
+      | { completed: number; total: number }
+      | undefined,
+    psiComplete: !!settings?.psiComplete,
+    psiProgress: settings?.psiProgress as
+      | { completed: number; total: number }
+      | undefined,
+    hasPsiKey: !!process.env.PAGESPEED_API_KEY,
+    ahrefsUploads: settings?.ahrefsUploads as
+      | {
+          topPages?: { rowCount: number; matchedCount: number; uploadedAt: string };
+          bestLinks?: { rowCount: number; matchedCount: number; uploadedAt: string };
+        }
+      | undefined,
+    extractedCount: Number(extractionCount.count),
+    psiScoredCount: Number(psiCount.count),
+    seoScoredCount: Number(scoredCount.count),
+    redirectCriticalCount: Number(criticalCount.count),
+  };
+}
+
+export async function getRedirectCriticalPages(
+  projectId: string,
+  page: number = 1,
+  perPage: number = 50,
+  onlyCritical: boolean = false
+) {
+  const offset = (page - 1) * perPage;
+
+  const conditions = [
+    eq(pages.projectId, projectId),
+    isNotNull(pages.seoScore),
+  ];
+  if (onlyCritical) {
+    conditions.push(eq(pages.isRedirectCritical, true));
+  }
+  const where = and(...conditions);
+
+  const [items, countResult, trafficSum] = await Promise.all([
+    db
+      .select({
+        id: pages.id,
+        url: pages.url,
+        title: pages.title,
+        organicTraffic: pages.organicTraffic,
+        trafficValueCents: pages.trafficValueCents,
+        referringDomains: pages.referringDomains,
+        topKeyword: pages.topKeyword,
+        seoScore: pages.seoScore,
+        contentTier: pages.contentTier,
+        isRedirectCritical: pages.isRedirectCritical,
+        psiScoreMobile: pages.psiScoreMobile,
+        psiScoreDesktop: pages.psiScoreDesktop,
+      })
+      .from(pages)
+      .where(where)
+      .orderBy(sql`${pages.seoScore} DESC NULLS LAST`)
+      .limit(perPage)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(pages)
+      .where(where),
+    db
+      .select({
+        totalTrafficValue: sql<number>`coalesce(sum(${pages.trafficValueCents}), 0)`,
+        criticalCount: sql<number>`count(*) filter (where ${pages.isRedirectCritical} = true)`,
+      })
+      .from(pages)
+      .where(
+        and(eq(pages.projectId, projectId), isNotNull(pages.seoScore))
+      ),
+  ]);
+
+  return {
+    items,
+    total: Number(countResult[0].count),
+    page,
+    perPage,
+    totalPages: Math.ceil(Number(countResult[0].count) / perPage),
+    totalTrafficValueCents: Number(trafficSum[0].totalTrafficValue),
+    redirectCriticalCount: Number(trafficSum[0].criticalCount),
+  };
+}
+
 export async function runPsiAnalysis(projectId: string) {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) {
