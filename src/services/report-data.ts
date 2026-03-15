@@ -7,6 +7,7 @@ import type {
   ContentAuditSection,
   SiteArchitectureNode,
   ReportSectionInventoryItem,
+  SeoBaselineData,
 } from "@/types/report";
 import type { PageSection } from "@/types/page-sections";
 
@@ -133,6 +134,9 @@ export async function assembleReportData(
   // Site architecture tree
   const siteArchitecture = buildSiteTree(projectPages, projectTemplates);
 
+  // SEO baseline
+  const seoBaseline = assembleSeoBaselineData(projectPages, projectTemplates);
+
   return {
     project: {
       id: project.id,
@@ -147,6 +151,90 @@ export async function assembleReportData(
     contentAudit,
     siteArchitecture,
     sectionInventory,
+    seoBaseline,
+  };
+}
+
+function assembleSeoBaselineData(
+  projectPages: (typeof pages.$inferSelect)[],
+  projectTemplates: (typeof templates.$inferSelect)[]
+): SeoBaselineData | null {
+  const scoredPages = projectPages.filter((p) => p.seoScore !== null);
+  if (scoredPages.length === 0) return null;
+
+  const criticalPages = scoredPages
+    .filter((p) => p.isRedirectCritical)
+    .sort((a, b) => (b.seoScore ?? 0) - (a.seoScore ?? 0));
+
+  const totalTrafficValue = scoredPages.reduce(
+    (sum, p) => sum + (p.trafficValueCents ?? 0),
+    0
+  );
+
+  const psiPages = projectPages.filter((p) => p.psiScoreMobile !== null);
+  const avgPsiMobile =
+    psiPages.length > 0
+      ? Math.round(
+          psiPages.reduce((s, p) => s + (p.psiScoreMobile ?? 0), 0) /
+            psiPages.length
+        )
+      : null;
+  const avgPsiDesktop =
+    psiPages.length > 0
+      ? Math.round(
+          psiPages.reduce((s, p) => s + (p.psiScoreDesktop ?? 0), 0) /
+            psiPages.length
+        )
+      : null;
+
+  const hasAhrefsData = scoredPages.some(
+    (p) => p.trafficValueCents !== null || p.referringDomains !== null
+  );
+
+  // On-page issues
+  const pagesWithHtml = projectPages.filter((p) => p.rawHtml);
+  const missingH1 = pagesWithHtml.filter((p) => !p.h1).length;
+  const missingCanonical = pagesWithHtml.filter(
+    (p) => !p.canonicalUrl
+  ).length;
+  const noindexPages = projectPages.filter((p) =>
+    p.metaRobots?.toLowerCase().includes("noindex")
+  ).length;
+  const missingSchemaOrg = pagesWithHtml.filter(
+    (p) =>
+      !p.schemaOrgTypes ||
+      (p.schemaOrgTypes as string[]).length === 0
+  ).length;
+
+  return {
+    hasAhrefsData,
+    hasPsiData: psiPages.length > 0,
+    summary: {
+      totalPagesScored: scoredPages.length,
+      redirectCriticalCount: criticalPages.length,
+      totalTrafficValue,
+      avgPsiMobile,
+      avgPsiDesktop,
+    },
+    redirectCriticalPages: criticalPages.map((p) => {
+      const tmpl = projectTemplates.find((t) => t.id === p.templateId);
+      return {
+        url: p.url,
+        seoScore: p.seoScore!,
+        organicTraffic: p.organicTraffic,
+        trafficValueCents: p.trafficValueCents,
+        referringDomains: p.referringDomains,
+        topKeyword: p.topKeyword,
+        contentTier: p.contentTier,
+      };
+    }),
+    preMigrationIssues: [], // Populated from Best by Links HTTP codes (requires separate query)
+    onPageIssues: {
+      missingH1,
+      missingCanonical,
+      noindexPages,
+      missingSchemaOrg,
+    },
   };
 }
 

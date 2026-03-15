@@ -8,6 +8,8 @@ import { SiteArchitecture } from "@/components/report/site-architecture";
 import { ContentAudit } from "@/components/report/content-audit";
 import { SectionInventoryReport } from "@/components/report/section-inventory-report";
 import { ReportCtaBar } from "@/components/report/report-cta-bar";
+import { SeoBaselineReport } from "@/components/report/seo-baseline-report";
+import type { SeoBaselineData } from "@/types/report";
 
 export default async function PublicReportPage({
   params,
@@ -106,6 +108,17 @@ export default async function PublicReportPage({
           const content = section.content as { audit: ContentAuditData };
           return (
             <ContentAudit audit={content.audit} notes={section.notes} />
+          );
+        })()}
+
+        {(() => {
+          const section = getSection("seo_baseline");
+          if (!section) return null;
+          const content = section.content as {
+            seoBaseline: SeoBaselineData;
+          };
+          return (
+            <SeoBaselineReport data={content.seoBaseline} />
           );
         })()}
       </ReportLayout>

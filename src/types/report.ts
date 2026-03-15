@@ -19,6 +19,7 @@ export interface ReportData {
   contentAudit: ContentAuditSection;
   siteArchitecture: SiteArchitectureNode[];
   sectionInventory: ReportSectionInventoryItem[];
+  seoBaseline: SeoBaselineData | null;
 }
 
 export interface TemplateSection {
@@ -80,4 +81,37 @@ export type ReportSectionType =
   | "template_inventory"
   | "site_architecture"
   | "content_audit"
-  | "section_inventory";
+  | "section_inventory"
+  | "seo_baseline";
+
+export interface SeoBaselineData {
+  hasAhrefsData: boolean;
+  hasPsiData: boolean;
+  summary: {
+    totalPagesScored: number;
+    redirectCriticalCount: number;
+    totalTrafficValue: number;
+    avgPsiMobile: number | null;
+    avgPsiDesktop: number | null;
+  };
+  redirectCriticalPages: Array<{
+    url: string;
+    seoScore: number;
+    organicTraffic: number | null;
+    trafficValueCents: number | null;
+    referringDomains: number | null;
+    topKeyword: string | null;
+    contentTier: string | null;
+  }>;
+  preMigrationIssues: Array<{
+    url: string;
+    httpCode: number;
+    referringDomains: number;
+  }>;
+  onPageIssues: {
+    missingH1: number;
+    missingCanonical: number;
+    noindexPages: number;
+    missingSchemaOrg: number;
+  };
+}

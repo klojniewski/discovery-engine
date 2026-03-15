@@ -58,6 +58,16 @@ export async function generateReport(projectId: string) {
     },
   ];
 
+  if (reportData.seoBaseline) {
+    sections.push({
+      type: "seo_baseline",
+      content: {
+        seoBaseline: reportData.seoBaseline,
+      },
+      order: 5,
+    });
+  }
+
   for (const section of sections) {
     await db.insert(reportSections).values({
       projectId,

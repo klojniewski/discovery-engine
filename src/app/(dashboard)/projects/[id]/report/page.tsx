@@ -12,6 +12,8 @@ import { SiteArchitecture } from "@/components/report/site-architecture";
 import { ContentAudit } from "@/components/report/content-audit";
 import { SectionInventoryReport } from "@/components/report/section-inventory-report";
 import { SectionNotes } from "@/components/report/section-notes";
+import { SeoBaselineReport } from "@/components/report/seo-baseline-report";
+import type { SeoBaselineData } from "@/types/report";
 
 export default async function ReportPage({
   params,
@@ -165,6 +167,24 @@ export default async function ReportPage({
               return (
                 <div>
                   <ContentAudit audit={content.audit} />
+                  <SectionNotes
+                    sectionId={section.id}
+                    initialNotes={section.notes}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* SEO Baseline */}
+            {(() => {
+              const section = getSection("seo_baseline");
+              if (!section) return null;
+              const content = section.content as {
+                seoBaseline: SeoBaselineData;
+              };
+              return (
+                <div>
+                  <SeoBaselineReport data={content.seoBaseline} />
                   <SectionNotes
                     sectionId={section.id}
                     initialNotes={section.notes}

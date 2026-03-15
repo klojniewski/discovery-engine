@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: "section-inventory", label: "Sections" },
   { id: "site-architecture", label: "Site Architecture" },
   { id: "content-audit", label: "Content Audit" },
+  { id: "seo-baseline", label: "SEO Baseline" },
 ] as const;
 
 interface ReportLayoutProps {
