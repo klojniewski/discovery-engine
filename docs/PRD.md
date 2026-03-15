@@ -1,12 +1,69 @@
 # Product Requirements Document (PRD)
 ## Replatform Discovery Engine
 
-**Version:** 1.2
-**Last Updated:** March 7, 2026
+**Version:** 1.3
+**Last Updated:** March 15, 2026
 **Document Owner:** Pagepro Product Team
-**Status:** Ready for Development
+**Status:** MVP ~90% Complete
 
-> **v1.2 Update:** MVP scope changed to internal-only tool. Payment collection (Stripe), public landing page, email notifications (Resend), and self-service features are deferred until the tool is proven with internal use. See `docs/plans/2026-03-07-feat-replatform-discovery-engine-plan.md` for the simplified build plan.
+> **v1.3 Update:** SEO Baseline feature complete. Core pipeline fully functional. This document combines the original PRD with current implementation state. Sections below marked with *[BUILT]* reflect what's live; *[DEFERRED]* marks planned-but-not-yet-built features; *[CHANGED]* marks where implementation diverged from the original spec.
+
+> **v1.2 Update:** MVP scope changed to internal-only tool. Payment collection (Stripe), public landing page, email notifications (Resend), and self-service features are deferred until the tool is proven with internal use.
+
+***
+
+## Current State (as of March 15, 2026)
+
+### What's Built
+
+The tool answers three questions prospects care about most:
+1. **What do we have?** — Complete inventory of pages, templates, content, and UI sections
+2. **What's worth keeping?** — Content tiered by business value, duplicates flagged, architecture mapped
+3. **Will we lose our Google rankings?** — SEO baseline with redirect-critical pages, traffic value at risk, and real user performance data
+
+**Pipeline:** Crawl → Classify & Score → Screenshot & Detect → Report (~7 min for 500 pages)
+
+**SEO Enrichment (optional, user-triggered):**
+- On-page extraction from stored HTML (H1, canonical, meta robots, schema.org, internal links)
+- Ahrefs CSV import (Top Pages + Best by Links, auto-detected, UTF-16LE/UTF-8)
+- PageSpeed Insights (lab scores on representative pages)
+- Chrome UX Report (real user Core Web Vitals at domain level + 25-week trends)
+- SEO scoring: 45% organic traffic + 35% referring domains + 20% on-page health
+- Post-enrichment tier correction: archive pages with traffic >= 50 or RDs >= 5 upgraded to consolidate
+
+**Dashboard tabs:** Overview | Crawl | Analysis | Pages | SEO | Performance | Report
+
+**Report sections (6 live, 3 deferred):**
+1. Executive Summary — with traffic value headline ("$X/mo at stake") *[BUILT]*
+2. Template Inventory *[BUILT]*
+3. Section Inventory (64 section types with SVG wireframes) *[BUILT]*
+4. Site Architecture (tree view) *[BUILT]*
+5. Content Audit (tier breakdown) *[BUILT]*
+6. SEO Baseline (redirect-critical pages, on-page debt) *[BUILT]*
+7. Technical Recommendations *[DEFERRED — needs Claude Sonnet narrative]*
+8. Investment Summary *[DEFERRED]*
+9. Next Steps *[DEFERRED]*
+
+### Key Design Decisions
+
+- **SEO scoring: 45% organic traffic + 35% RDs + 20% on-page health** — Original formula double-counted by using both traffic value (traffic × CPC) and organic traffic. Fixed to use independent signals only.
+- **Tier overrides post-enrichment** — After Ahrefs import, pages with organic traffic >= 50/mo or referring domains >= 5 get upgraded from archive to consolidate minimum. Prevents classification (which runs without traffic data) from archiving important pages.
+- **Performance excluded from SEO score** — A page ranking well despite bad performance is MORE important to protect. Performance shown separately as a migration opportunity.
+- **Organic Keywords CSV deferred to v2** — Traffic value encodes intent implicitly via CPC. **Known gap:** local intent pages (low CPC, high business value) are invisible without it.
+- **CrUX over PSI for domain baseline** — One free API call gives real user data for the entire domain. More credible in sales conversations than lab scores.
+- **Ahrefs CSV over API** — API costs $500+/month. CSV exports from $99 plan give the same data.
+- **No separate tables for SEO data** — All per-page SEO data stored as columns on `pages` table. Domain-level data in `projects.settings` JSONB.
+- **Screenshot only representatives** — 1 per template (~12-25 pages) not all 500+. 90% API cost reduction.
+
+### What's Left
+
+- **Multi-site testing** — WordPress blog, React SPA, large 500+ page site
+- **Production deployment** — Vercel, env vars, custom domain, Supabase production, Sentry
+- **Report sections 7-9** — Technical Recommendations, Investment Summary, Next Steps (Claude Sonnet narrative)
+- **Full end-to-end report testing** — pagepro.co report not yet verified
+- **PDF generation** — deferred, Cmd+P for now
+- **Stripe payments** — deferred until business model validated
+- **Organic Keywords CSV** — v2, for local intent classification
 
 ***
 
