@@ -11,6 +11,7 @@ import {
 } from "@/services/firecrawl";
 import { captureScreenshot, uploadScreenshot } from "@/services/screenshots";
 import crypto from "crypto";
+import { normalizeUrl } from "@/lib/url";
 
 export async function createProject(formData: FormData) {
   const url = formData.get("url") as string;
@@ -166,21 +167,6 @@ export async function pollCrawlStatus(projectId: string) {
     total: crawlStatus.total,
     completed: crawlStatus.completed,
   };
-}
-
-function normalizeUrl(raw: string): string {
-  try {
-    const u = new URL(raw);
-    u.search = "";
-    u.hash = "";
-    // Remove trailing slash except for root path
-    if (u.pathname !== "/" && u.pathname.endsWith("/")) {
-      u.pathname = u.pathname.slice(0, -1);
-    }
-    return u.toString();
-  } catch {
-    return raw;
-  }
 }
 
 const JUNK_URL_PATTERNS = [

@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const projects = pgTable("projects", {
@@ -27,6 +28,14 @@ export const projects = pgTable("projects", {
     analysisProgress?: { completed: number; total: number };
     screenshotProgress?: { completed: number; total: number };
     scrapeProgress?: { completed: number; total: number };
+    ahrefsUploads?: {
+      topPages?: { rowCount: number; matchedCount: number; uploadedAt: string };
+      bestLinks?: { rowCount: number; matchedCount: number; uploadedAt: string };
+    };
+    seoExtractionComplete?: boolean;
+    seoExtractionProgress?: { completed: number; total: number };
+    psiComplete?: boolean;
+    psiProgress?: { completed: number; total: number };
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -73,8 +82,30 @@ export const pages = pgTable("pages", {
   contentHash: text("content_hash"),
   detectedSections: jsonb("detected_sections").$type<import("@/types/page-sections").PageSection[] | null>(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  // On-page SEO signals (extracted from rawHtml)
+  canonicalUrl: text("canonical_url"),
+  metaRobots: text("meta_robots"),
+  schemaOrgTypes: jsonb("schema_org_types").$type<string[]>(),
+  internalLinkCount: integer("internal_link_count"),
+  // Ahrefs data (from Top Pages CSV)
+  organicTraffic: integer("organic_traffic"),
+  trafficValueCents: integer("traffic_value_cents"),
+  topKeyword: text("top_keyword"),
+  topKeywordVolume: integer("top_keyword_volume"),
+  topKeywordPosition: integer("top_keyword_position"),
+  // Ahrefs data (from Best by Links CSV, or Top Pages — use max)
+  referringDomains: integer("referring_domains"),
+  // PageSpeed Insights
+  psiScoreMobile: integer("psi_score_mobile"),
+  psiScoreDesktop: integer("psi_score_desktop"),
+  // Computed SEO
+  seoScore: integer("seo_score"),
+  isRedirectCritical: boolean("is_redirect_critical").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("pages_project_redirect_critical").on(table.projectId, table.isRedirectCritical),
+  index("pages_project_seo_score").on(table.projectId, table.seoScore),
+]);
 
 export const apiUsage = pgTable("api_usage", {
   id: uuid("id").primaryKey().defaultRandom(),
