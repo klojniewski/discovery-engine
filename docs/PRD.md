@@ -67,11 +67,19 @@ The tool answers three questions prospects care about most:
 
 ***
 
+---
+
+# Phase 2 Vision (Post-Validation)
+
+> **Everything below this line is aspirational.** These sections describe the original product vision written before development began. They are preserved as reference for future phases but do not reflect the current product. For current reality, see the **Current State** section above.
+
+---
+
 ## Executive Summary
 
 **Product Name:** Replatform Discovery Engine  
 **Product Type:** AI-powered website analysis SaaS + professional service  
-**Target Market:** Mid-market and enterprise companies planning website migrations  
+**Target Market:** Digital Native SMBs (20-200 employees) planning website migrations
 **Primary Use Case:** Initial discovery phase for Next.js + Sanity replatforming projects
 
 **Value Proposition:**  
@@ -79,9 +87,9 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 
 **Business Model:**
 - **Phase 1 (MVP):** Internal tool for Pagepro team. No payment collection. Audits created manually by team members.
-- **Phase 2 (Post-Validation):** Paid Discovery Audit: $2,500-5,000 per project (feeds into $50k-150k replatforming contracts)
+- **Phase 2 (Post-Validation):** Paid Discovery Audit: $2,500-5,000 per project (feeds into $30k-80k replatforming contracts)
 - **Phase 3 (Future):** Self-Service SaaS: $299/month unlimited projects
-- **Phase 4 (Future):** Enterprise Annual License: $50k-100k/year for enterprise clients with multiple brands
+- **Phase 4 (Future):** Annual License for larger clients *[DEFERRED]*
 
 ***
 
@@ -96,8 +104,8 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 4. Hard to differentiate from competing agencies in sales process
 5. Risk of underestimating effort and losing margin
 
-**For Clients (Mid-Market & Enterprise):**
-1. Don't know what content/pages they actually have (especially large enterprises with 500+ pages)
+**For Clients (Digital Native SMBs):**
+1. Don't know what content/pages they actually have (especially growing companies with 200+ pages)
 2. Fear of SEO loss during migration (often the biggest blocker to decision)
 3. Uncertainty about migration timeline and cost (can't get budget approval)
 4. Can't articulate current website structure to vendors (makes RFP process difficult)
@@ -111,12 +119,21 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 ### North Star Metric
 **Conversion Rate:** Percentage of discovery audits that convert to signed replatforming contracts (Target: 70%+)
 
-### Success Criteria (90 Days Post-Launch)
-- Complete 10 paid discovery audits
-- Generate $50k in audit revenue
-- Convert 7+ audits into replatforming contracts ($500k+ pipeline)
-- Reduce internal discovery time from 12 hours → 2 hours average
-- Achieve 90%+ client satisfaction on audit quality
+### Success Criteria (2026)
+
+**Primary metric:** Tool's contribution to Pagepro's 2026 business goals:
+- **8 Nexity implementations** — each audit should directly inform a Nexity project scope
+- **24 new business SQLs** — audits are the primary qualification tool for inbound and outbound leads
+
+**Secondary metrics (operational):**
+- Reduce internal discovery time from 12 hours → 30 minutes per audit
+- Complete 24+ audits in 2026 (1 per SQL minimum)
+- 90%+ of audits result in accurate scope estimates (no >20% overruns on resulting projects)
+
+**Phase 2 metrics (post-validation, when paid audits launch):**
+- Generate audit revenue ($2,500 per audit)
+- Audit-to-contract conversion rate (target: 70%+)
+- Pipeline generated from audits ($500k+ in first 6 months)
 
 ***
 
@@ -124,17 +141,17 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 
 ### Primary Persona: "Technical Buyer Tom"
 - **Role:** CTO, VP Engineering, Head of Digital, Director of Technology
-- **Company:** Mid-market to enterprise, 100-2,000 employees, $25M-500M revenue
-- **Current Website:** 200-2,000 pages on legacy stack (WordPress, Drupal, Sitecore, Adobe Experience Manager, custom CMS)
+- **Company:** Digital Native SMBs, 20-200 employees, $2M-50M revenue
+- **Current Website:** 50-2,000 pages on legacy stack (WordPress, Drupal, custom CMS, vibe-coded prototypes)
 - **Pain:** Current website is slow, hard to maintain, expensive to update, poor developer experience
-- **Budget Authority:** Can approve $2.5k-5k audit, influences/approves $50k-250k project decisions
+- **Budget Authority:** Can approve $2.5k-5k audit, influences/approves $30k-80k project decisions
 - **Tech Savvy:** Understands technical concepts, appreciates data-driven decisions, cares about performance and developer velocity
 - **Motivation:** Wants modern tech stack, better performance, lower maintenance cost, faster time-to-market for content updates
 
 ### Secondary Persona: "Marketing Director Maria"
 - **Role:** Marketing Director, CMO, VP of Marketing, Digital Marketing Manager
 - **Company:** Same as Technical Buyer Tom
-- **Current Website:** 200-2,000 pages, frustrated by slow content updates and poor UX
+- **Current Website:** 50-2,000 pages, frustrated by slow content updates and poor UX
 - **Pain:** Website is slow, hard to update content without dev team, SEO performance declining, can't execute marketing campaigns quickly
 - **Fear:** Losing organic traffic during migration, budget waste on failed projects, long timelines
 - **Influence:** Champions project internally, controls marketing budget, focuses on SEO/content preservation and business outcomes
@@ -159,7 +176,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 **Functional Requirements:**
 - Input: Single website URL
 - Crawl depth: Configurable (default: 5 levels, max: 10 levels)
-- Page limit: 1,000 pages for MVP (expandable to 10,000 for enterprise)
+- Page limit: 500 pages default (configurable up to 2,000)
 - Respect robots.txt and crawl-delay directives
 - Handle JavaScript-rendered content (SPA support)
 - Extract from each page:
@@ -357,8 +374,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 - **Effort Bands:**
   - Small Migration: <100 pages, 3-5 templates → 6-8 weeks, $40k-60k
   - Medium Migration: 100-500 pages, 5-10 templates → 10-14 weeks, $80k-120k
-  - Large Migration: 500-1,500 pages, 10-15 templates → 16-24 weeks, $150k-250k
-  - Enterprise Migration: 1,500+ pages, 15+ templates, custom features → 24+ weeks, $250k-500k+
+  - Large Migration: 500-2,000 pages, 10-15 templates → 12-20 weeks, $80k-150k
 
 **Risk Flags:**
 - 🚨 **High Risk:** JS-heavy SPAs, fragile forms with complex validation, uncommon CMS, heavy third-party dependencies
@@ -380,7 +396,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
   **1. Executive Summary** (1 page)
      - Site overview stats (total pages, unique templates, content volume)
      - Migration complexity score and timeline estimate
-     - **Total investment estimate** (e.g., "$120k-150k, 14-16 weeks")
+     - **Total investment estimate** (e.g., "$60k-100k, 10-14 weeks")
      - **ROI projection:** Performance gains, SEO preservation, operational savings
      - Key findings and strategic recommendations
   
@@ -473,7 +489,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
    - Explains what's included (with sample screenshots)
    - Shows anonymized sample report
    - Social proof: testimonials, logos of companies analyzed
-   - Pricing: $2,500 (standard sites <500 pages) or $4,500 (enterprise 500-2000 pages)
+   - Pricing: $2,500 (standard audit, up to 500 pages)
    - FAQ section addressing common concerns
 
 3. Fills out intake form:
@@ -533,7 +549,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 
 **Target SLA:**
 - Report delivered within 3 business days for standard tier ($2,500)
-- Report delivered within 5 business days for enterprise tier ($4,500)
+- Report delivered within 5 business days for complex sites (500+ pages)
 - Stretch goal: 48 hours for standard tier
 
 ***
@@ -573,6 +589,19 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 ***
 
 ## Technical Architecture
+
+> **Note:** This section describes the **original planned architecture**. The actual built implementation differs significantly:
+>
+> | Planned | Built |
+> |---------|-------|
+> | Playwright + Railway/Fly.io | Firecrawl API (managed crawling) |
+> | BullMQ + Upstash Redis | Inngest (serverless durable functions) |
+> | Vercel Postgres + pgvector | Supabase PostgreSQL + Drizzle ORM |
+> | OpenAI embeddings + GPT-4o fallback | Claude Haiku (classification) + Claude Sonnet (vision) |
+> | `components` + `links` + `embeddings` tables | `section_types` table + `pages.detected_sections` JSONB |
+> | Stripe, Resend, PostHog | Deferred |
+>
+> See **Current State** section at the top for the actual architecture.
 
 ### Stack
 
@@ -616,7 +645,7 @@ CREATE TABLE projects (
   client_name VARCHAR(255) NOT NULL,
   client_email VARCHAR(255) NOT NULL,
   website_url VARCHAR(500) NOT NULL,
-  tier VARCHAR(50) NOT NULL, -- 'standard' or 'enterprise'
+  -- tier column removed in implementation (single tier MVP)
   status VARCHAR(50) NOT NULL, -- 'pending', 'crawling', 'analyzing', 'reviewing', 'published'
   payment_status VARCHAR(50) NOT NULL, -- 'paid', 'refunded'
   stripe_payment_id VARCHAR(255),
@@ -943,7 +972,7 @@ Format as markdown with clear headings and bullet points.
 - Call bookings from report page
 
 **Quality:**
-- Human review time per report (target: <90 min for standard, <120 min for enterprise)
+- Human review time per report (target: <90 min)
 - Number of manual edits to AI analysis (track which sections need most editing)
 - Client satisfaction scores (post-delivery survey, NPS)
 - Report accuracy (validate template classification on sample)
@@ -987,11 +1016,11 @@ Format as markdown with clear headings and bullet points.
 
 ### Phase 1: Closed Beta (Weeks 1-4)
 
-**Goal:** Validate product with 5 friendly enterprise clients
+**Goal:** Validate product with 5 friendly Digital Native SMB prospects
 
 **Target Beta Clients:**
 - Existing Pagepro clients planning future migrations
-- Enterprise prospects in pipeline (100-500 employees)
+- Digital Native SMB prospects in pipeline (20-200 employees)
 - Companies with 300+ page websites on legacy platforms
 - Industries: SaaS, Professional Services, Manufacturing, Healthcare
 
@@ -1026,7 +1055,7 @@ Format as markdown with clear headings and bullet points.
 3. **Existing client referrals** (incentivize with $500 credit)
 
 **Messaging:**
-- "Before you commit to a $100k+ migration, get clarity for $2,500"
+- "Before you commit to a $50k+ migration, get clarity for $2,500"
 - "See exactly what you're migrating before you migrate it"
 - Emphasize risk reduction and informed decision-making
 
@@ -1065,7 +1094,7 @@ Format as markdown with clear headings and bullet points.
 
 2. **Paid advertising:**
    - **Google Ads:** "website migration services", "next.js agency", "cms migration planning"
-   - **LinkedIn Ads:** Target job titles (CTO, VP Engineering, Marketing Director) at companies 100-1000 employees
+   - **LinkedIn Ads:** Target job titles (CTO, VP Engineering, Marketing Director) at companies 20-200 employees
 
 3. **Partnerships:**
    - Sanity (cross-promotion in their partner directory)
@@ -1100,11 +1129,7 @@ Format as markdown with clear headings and bullet points.
    - No human review, fully automated
    - DIY report interpretation
 
-2. **Enterprise annual contracts:**
-   - $50k-100k/year for companies with multiple brands
-   - Unlimited audits across all properties
-   - Quarterly migration planning workshops
-   - Priority support
+2. **Annual contracts:** *[DEFERRED - Phase 4]*
 
 3. **Platform integrations:**
    - Sanity Studio plugin ("Audit your existing site before migration")
@@ -1135,17 +1160,8 @@ Format as markdown with clear headings and bullet points.
 - 45-minute walkthrough call
 - Email support during review
 
-**Enterprise Tier: $4,500**
-- Websites 500-2,000 pages
-- 5 business day delivery
-- Full AI-powered analysis + deeper customization
-- Comprehensive PDF report (80-120 pages)
-- Optional Google Analytics integration
-- 60-minute strategy call
-- Priority support
-
 **Rationale:**
-- $2,500 is 5-10% of typical project value ($50k-150k)
+- $2,500 is 5-10% of typical project value ($30k-80k)
 - Impulse purchase range for VP-level buyers (no board approval needed)
 - High enough to filter tire-kickers
 - Low enough to be no-regret purchase
@@ -1165,126 +1181,46 @@ Format as markdown with clear headings and bullet points.
 - **Sanity schema generation:** +$1,500 (production-ready schema files, not just recommendations)
 - **Priority 24-hour delivery:** +$1,000 (rush fee)
 
-**Enterprise Licensing:**
-- **Annual Contract:** $50k-100k/year
-  - Unlimited audits across all properties
-  - Dedicated success manager
-  - Quarterly strategy workshops
-  - Custom integrations
-  - White-label option
-  - API access
+**Enterprise Licensing:** *[DEFERRED - Phase 4]*
 
 ***
 
 ## Development Roadmap
 
-### Week 1-2: Foundation & Infrastructure
-**Milestone: Can crawl a single URL and store data**
+> **Note:** The original 16-week roadmap described a stack that was never built (Playwright, pgvector, BullMQ, Railway). It has been replaced with the actual status below.
 
-- [ ] Next.js 16 project setup (App Router, TypeScript, Tailwind v4)
-- [ ] PostgreSQL database provisioning (Vercel Postgres or Supabase)
-- [ ] Install pgvector extension
-- [ ] Create database schema (all tables)
-- [ ] Basic authentication (team login for dashboard)
-- [ ] Crawler service setup (Node.js + Playwright)
-- [ ] Deploy crawler to Railway or Fly.io
-- [ ] Test: Crawl single page, store HTML in DB
+### What's Been Built (Phases 1-4, ~90% complete)
 
-### Week 3-4: Multi-Page Crawler
-**Milestone: Can crawl 100-page site in <5 minutes**
+- [x] Core pipeline: Crawl → Classify & Score → Screenshot & Detect → Report
+- [x] 6 report sections live (Executive Summary, Templates, Sections, Architecture, Content Audit, SEO Baseline)
+- [x] SEO enrichment: Ahrefs CSV import, on-page extraction, PageSpeed Insights, Chrome UX Report
+- [x] Performance tab with CrUX real user data and PSI lab scores
+- [x] Public report sharing with optional password protection
+- [x] API cost tracking per project per step
+- [x] Supabase Auth for team login
+- [x] 37 unit tests passing
 
-- [ ] Job queue implementation (BullMQ + Upstash Redis)
-- [ ] Multi-page crawling with queue
-- [ ] Parallel crawling (5 concurrent pages)
-- [ ] Respect robots.txt
-- [ ] Link discovery and following
-- [ ] Screenshot generation (Playwright)
-- [ ] HTML snapshot storage (Vercel Blob or S3)
-- [ ] Error handling and retry logic
-- [ ] Dashboard UI: Start audit form
-- [ ] Dashboard UI: Crawl progress (real-time updates via polling or SSE)
-- [ ] Test: Crawl 100-page site successfully
+### Near-term (Weeks 1-2)
 
-### Week 5-6: AI Analysis - Core Features
-**Milestone: Can classify templates and detect components**
+- [ ] Multi-site testing — WordPress blog, React SPA, large content site (500+ pages)
+- [ ] Full end-to-end report testing — verify pagepro.co report works completely
+- [ ] Production deployment — Vercel, env vars, custom domain, Supabase production, Sentry
 
-- [ ] OpenAI API integration (text-embedding-3-small)
-- [ ] Generate embeddings for all pages
-- [ ] Store embeddings in pgvector
-- [ ] Anthropic API integration (Claude 3.5 Sonnet)
-- [ ] Template classification (LLM + clustering)
-- [ ] Component detection (Claude Vision + screenshots)
-- [ ] Content quality scoring
-- [ ] Duplicate detection (embedding similarity)
-- [ ] Dashboard UI: View analysis results
-- [ ] Test: Analyze 100-page site, validate template accuracy
+### Medium-term (Weeks 3-6)
 
-### Week 7-8: AI Analysis - Advanced Features
-**Milestone: Can generate complete migration recommendations**
+- [ ] Report sections 7-9 — Technical Recommendations, Investment Summary, Next Steps (Claude Sonnet narrative generation)
+- [ ] Organic Keywords CSV import (v2) — intent classification for redirect priority, especially local intent pages
+- [ ] Post-enrichment tier override UI — show which pages were auto-corrected and why
 
-- [ ] URL structure analysis
-- [ ] Broken link detection
-- [ ] Sitemap generation (visual with React Flow)
-- [ ] Migration complexity estimation
-- [ ] Business case generation (LLM prompt)
-- [ ] Technical recommendations (LLM prompt)
-- [ ] Content tier assignment
-- [ ] Test: Full analysis on 3 different site types
+### Deferred (Post-Validation)
 
-### Week 9-10: Report Generation
-**Milestone: Can generate beautiful PDF report**
-
-- [ ] Report UI components (all 10 sections)
-- [ ] Data visualization (Recharts for charts)
-- [ ] Interactive sitemap visualization
-- [ ] Report editing interface (for human review)
-- [ ] PDF generation (Puppeteer)
-- [ ] Shareable report links (public or password-protected)
-- [ ] Report analytics tracking (PostHog)
-- [ ] Test: Generate report for 3 beta clients
-
-### Week 11-12: Polish, Launch Prep, Beta Testing
-**Milestone: 5 beta clients complete, ready for paid launch**
-
-- [ ] Landing page (audit sales page)
-- [ ] Stripe payment integration
-- [ ] Email notifications (Resend)
-  - Payment confirmation
-  - Crawl started
-  - Report ready
-  - Follow-up sequences
-- [ ] Dashboard refinements (UI polish)
-- [ ] Report template refinements (based on beta feedback)
-- [ ] Error monitoring (Sentry)
-- [ ] Performance optimization
-- [ ] Beta testing with 5 friendly clients
-- [ ] Collect feedback and iterate
-- [ ] Bug fixes
-- [ ] Documentation (internal team playbook)
-- [ ] Launch preparation checklist
-
-### Week 13-14: Soft Launch
-**Milestone: First 5 paid audits**
-
-- [ ] Public landing page live
-- [ ] Payment processing active
-- [ ] Email campaigns to warm leads
-- [ ] LinkedIn outreach to prospects
-- [ ] First 5 paid audits delivered
-- [ ] Customer feedback collection
-- [ ] Iterate based on real customer feedback
-
-### Week 15-16: Scale & Optimize
-**Milestone: 10+ audits completed, conversion rate >60%**
-
-- [ ] Optimize AI prompts based on review time data
-- [ ] Performance improvements (faster crawling/analysis)
-- [ ] Add analytics dashboard (internal metrics)
-- [ ] Content marketing (first blog post live)
-- [ ] Case study from beta client
-- [ ] Paid ads launch (Google + LinkedIn)
-- [ ] Referral program setup
-- [ ] Monitor conversion funnel and optimize
+- [ ] PDF generation — currently Cmd+P, proper PDF when report format stabilises
+- [ ] Stripe payments — deferred until business model validated with internal use
+- [ ] Batch audit mode — paste URL list, run overnight, export enrichment CSV for Clay/Lemlist outbound
+- [ ] CRM note generation — auto-generate Pipedrive CRM note from audit data
+- [ ] Email notifications (Resend) — notify team when crawl/analysis completes
+- [ ] Report analytics tracking (PostHog) — track client engagement with published reports
+- [ ] Landing page for paid audit sales
 
 ***
 
@@ -1307,7 +1243,7 @@ Format as markdown with clear headings and bullet points.
 
 4. **White-Label Option - When?**
    - **Question:** Should we offer white-label from day 1 for agencies?
-   - **Recommendation:** No. Agencies are competitors. Focus on direct-to-enterprise for first 12 months.
+   - **Recommendation:** No. Agencies are competitors. Focus on direct-to-SMB for first 12 months.
 
 5. **Freemium Tier?**
    - **Question:** Should we offer free tier (10 pages analyzed)?
@@ -1413,7 +1349,7 @@ Format as markdown with clear headings and bullet points.
 **12 Months After Launch (Q1 2027):**
 - ✅ 120 audits completed ($300k audit revenue)
 - ✅ 85 projects won from audits (71% conversion, $6.4M total revenue)
-- ✅ Self-serve tier launched ($299/month, 10 enterprise customers = $36k ARR)
+- ✅ Self-serve tier launched ($299/month, 10 SMB customers = $36k ARR)
 - ✅ Featured in Sanity partner showcase
 - ✅ Recognized product in market ("Pagepro Audit" becomes noun)
 - ✅ Considering spinning off as separate SaaS product
@@ -1422,7 +1358,7 @@ Format as markdown with clear headings and bullet points.
 **18 Months After Launch (Q3 2027):**
 - ✅ 250+ audits completed
 - ✅ Product is profitable standalone business unit
-- ✅ Enterprise annual contracts: 5 clients at $50k-75k/year
+- ✅ Annual contracts explored *[DEFERRED - Phase 4]*
 - ✅ Expanded to other agency partners (white-label licensing reconsidered)
 - ✅ V2 features: GA integration, competitor analysis, automated Sanity schema generation
 - ✅ Team of 3-4 people, fully systematized
@@ -1443,13 +1379,13 @@ Format as markdown with clear headings and bullet points.
 
 **Section 1: Executive Summary** (1 page)
 - Site Overview Statistics
-  - Total pages analyzed: 487
-  - Unique templates identified: 17
-  - Content volume: 145,000 words, 2,300 images
+  - Total pages analyzed: 337
+  - Unique templates identified: 12
+  - Content volume: 85,000 words, 1,200 images
   - Current platform: WordPress
 - Migration Complexity: Moderate (6/10)
-- Timeline Estimate: 12-14 weeks
-- Investment Range: $110k-$135k
+- Timeline Estimate: 10-14 weeks
+- Investment Range: $60k-$100k
 - Key Findings (3-4 bullets)
 - Strategic Recommendations (3-4 bullets)
 
@@ -1465,7 +1401,7 @@ Format as markdown with clear headings and bullet points.
   - 60% lower ongoing maintenance costs
   - Improved SEO potential
 - Investment vs ROI Analysis
-  - One-time investment: $110k-135k
+  - One-time investment: $60k-100k
   - Annual savings: $40k-50k (dev time + hosting + maintenance)
   - Break-even: 24-30 months
   - 3-year ROI: 45-65%
@@ -1566,10 +1502,10 @@ Format as markdown with clear headings and bullet points.
   - Development: $Y
   - Content Migration: $Z
   - Project Management: $A
-  - Total: $110k-135k
+  - Total: $60k-100k
 - Comparison Table
-  - Migrate Everything: $135k, 18 weeks
-  - Smart Migration (Recommended): $110k, 14 weeks
+  - Migrate Everything: $100k, 16 weeks
+  - Smart Migration (Recommended): $65k, 12 weeks
   - Savings: $25k, 4 weeks
 - Payment Milestones
   - Deposit (30%): $33k
