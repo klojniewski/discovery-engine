@@ -69,6 +69,15 @@ export async function assembleReportData(
     0
   );
 
+  // SEO headline stats
+  const totalTrafficValueCents = projectPages.reduce(
+    (sum, p) => sum + (p.trafficValueCents ?? 0),
+    0
+  );
+  const redirectCriticalCount = projectPages.filter(
+    (p) => p.isRedirectCritical
+  ).length;
+
   const stats = {
     totalPages: projectPages.length,
     scrapedPages: projectPages.filter((p) => p.rawMarkdown).length,
@@ -79,6 +88,8 @@ export async function assembleReportData(
       projectPages.length > 0
         ? Math.round(totalWords / projectPages.length)
         : 0,
+    totalTrafficValueCents,
+    redirectCriticalCount,
   };
 
   // Templates with their pages

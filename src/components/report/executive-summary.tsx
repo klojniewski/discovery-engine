@@ -6,6 +6,8 @@ import {
   BarChart3,
   Globe,
   Clock,
+  DollarSign,
+  ShieldAlert,
 } from "lucide-react";
 
 interface ExecutiveSummaryProps {
@@ -16,6 +18,8 @@ interface ExecutiveSummaryProps {
     sectionTypeCount: number;
     totalWords: number;
     avgWordsPerPage: number;
+    totalTrafficValueCents?: number;
+    redirectCriticalCount?: number;
   };
   websiteUrl: string;
   analysisDate: string | null;
@@ -74,6 +78,35 @@ export function ExecutiveSummary({
           </>
         )}
       </p>
+
+      {/* SEO headline — first thing a CMO sees */}
+      {(stats.totalTrafficValueCents ?? 0) > 0 && (
+        <div className="rounded-lg border bg-red-50 p-5 mb-6">
+          <p className="text-sm font-medium text-red-900 mb-1">
+            Organic Traffic at Stake
+          </p>
+          <p className="text-3xl font-bold text-red-700 mb-1">
+            ${((stats.totalTrafficValueCents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            <span className="text-lg font-medium">/month</span>
+          </p>
+          <p className="text-sm text-red-800">
+            Your current organic traffic has an estimated ad-equivalent value of{" "}
+            <strong>
+              ${((stats.totalTrafficValueCents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              /month
+            </strong>
+            {" "}&mdash; this is what&apos;s at stake in the migration.
+            {(stats.redirectCriticalCount ?? 0) > 0 && (
+              <>
+                {" "}
+                <strong>{stats.redirectCriticalCount} pages</strong> are
+                redirect-critical and require proper 301 redirects to preserve
+                this value.
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {STAT_CARDS.map((card) => {

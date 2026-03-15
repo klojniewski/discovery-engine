@@ -14,6 +14,8 @@ export interface ReportData {
     sectionTypeCount: number;
     totalWords: number;
     avgWordsPerPage: number;
+    totalTrafficValueCents: number;
+    redirectCriticalCount: number;
   };
   templates: TemplateSection[];
   contentAudit: ContentAuditSection;
