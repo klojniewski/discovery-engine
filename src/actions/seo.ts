@@ -10,6 +10,7 @@ import {
   type BestLinksRow,
 } from "@/services/ahrefs-parser";
 import { normalizeUrl } from "@/lib/url";
+import { runPageSpeedInsights } from "@/services/pagespeed";
 
 export async function runOnPageSeoExtraction(projectId: string) {
   const [project] = await db
@@ -300,6 +301,61 @@ export async function clearAhrefsData(
   delete uploads[key];
 
   await updateProjectSettings(projectId, null, { ahrefsUploads: uploads });
+}
+
+export async function runPsiAnalysis(projectId: string) {
+  const apiKey = process.env.PAGESPEED_API_KEY;
+  if (!apiKey) {
+    return { error: "PAGESPEED_API_KEY not configured" };
+  }
+
+  // Get representative pages (those with screenshots — same set used for section detection)
+  const repPages = await db
+    .select({ id: pages.id, url: pages.url })
+    .from(pages)
+    .where(
+      and(
+        eq(pages.projectId, projectId),
+        isNotNull(pages.screenshotUrl)
+      )
+    )
+    .limit(25);
+
+  const total = repPages.length;
+  let completed = 0;
+
+  await updateProjectSettings(projectId, null, {
+    psiProgress: { completed: 0, total },
+  });
+
+  for (const page of repPages) {
+    const [mobile, desktop] = await Promise.all([
+      runPageSpeedInsights(page.url, "mobile"),
+      runPageSpeedInsights(page.url, "desktop"),
+    ]);
+
+    if (mobile !== null || desktop !== null) {
+      await db
+        .update(pages)
+        .set({
+          psiScoreMobile: mobile,
+          psiScoreDesktop: desktop,
+        })
+        .where(eq(pages.id, page.id));
+    }
+
+    completed++;
+    await updateProjectSettings(projectId, null, {
+      psiProgress: { completed, total },
+    });
+  }
+
+  await updateProjectSettings(projectId, null, {
+    psiComplete: true,
+    psiProgress: undefined,
+  });
+
+  return { completed, total };
 }
 
 /** Helper to merge settings without overwriting unrelated keys */
