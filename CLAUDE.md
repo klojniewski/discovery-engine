@@ -118,7 +118,7 @@ src/
   app/                    # Next.js App Router pages
     (auth)/               # Login/signup pages
     (dashboard)/          # Authenticated internal pages
-      projects/[id]/      # Project tabs: overview, crawl, analysis, pages, seo, performance, report
+      projects/[id]/      # Project tabs: overview, crawl, pages, analysis, seo, performance, report
     (public)/             # Public report viewer
     api/                  # Webhook endpoints only
   actions/                # Server Actions (projects.ts, seo.ts, analysis.ts, report.ts)

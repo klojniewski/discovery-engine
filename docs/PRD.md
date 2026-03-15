@@ -31,7 +31,7 @@ The tool answers three questions prospects care about most:
 - SEO scoring: 45% organic traffic + 35% referring domains + 20% on-page health
 - Post-enrichment tier correction: archive pages with traffic >= 50 or RDs >= 5 upgraded to consolidate
 
-**Dashboard tabs:** Overview | Crawl | Analysis | Pages | SEO | Performance | Report
+**Dashboard tabs:** Overview | Crawl | Pages | Analysis | SEO | Performance | Report
 
 **Report sections (6 live, 3 deferred):**
 1. Executive Summary — with traffic value headline ("$X/mo at stake") *[BUILT]*
