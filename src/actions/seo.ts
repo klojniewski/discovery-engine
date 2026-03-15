@@ -11,6 +11,12 @@ import {
 } from "@/services/ahrefs-parser";
 import { normalizeUrl } from "@/lib/url";
 import { runPageSpeedInsights } from "@/services/pagespeed";
+import {
+  fetchCruxOrigin,
+  fetchCruxHistory,
+  type CruxOriginData,
+  type CruxHistoryData,
+} from "@/services/crux";
 
 export async function runOnPageSeoExtraction(projectId: string) {
   const [project] = await db
@@ -509,6 +515,76 @@ export async function getPsiPages(projectId: string) {
       : null;
 
   return { items, avgMobile, avgDesktop };
+}
+
+export async function fetchCruxData(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) throw new Error("Project not found");
+
+  const origin = project.websiteUrl;
+  const [originResult, historyResult] = await Promise.all([
+    fetchCruxOrigin(origin),
+    fetchCruxHistory(origin),
+  ]);
+
+  const updates: Record<string, unknown> = {};
+
+  if ("error" in originResult) {
+    return { error: originResult.error };
+  }
+  updates.cruxOrigin = originResult;
+
+  if (!("error" in historyResult)) {
+    updates.cruxHistory = historyResult;
+  }
+
+  await updateProjectSettings(projectId, null, updates);
+
+  return {
+    origin: originResult,
+    history: "error" in historyResult ? null : historyResult,
+    historyError: "error" in historyResult ? historyResult.error : null,
+  };
+}
+
+export async function getCruxData(projectId: string) {
+  const [project] = await db
+    .select({ settings: projects.settings })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) return null;
+
+  const settings = project.settings as Record<string, unknown> | null;
+  return {
+    origin: (settings?.cruxOrigin as CruxOriginData) ?? null,
+    history: (settings?.cruxHistory as CruxHistoryData) ?? null,
+  };
+}
+
+export async function runPsiForPage(pageId: string) {
+  const [page] = await db
+    .select({ id: pages.id, url: pages.url })
+    .from(pages)
+    .where(eq(pages.id, pageId))
+    .limit(1);
+  if (!page) throw new Error("Page not found");
+
+  const [mobile, desktop] = await Promise.all([
+    runPageSpeedInsights(page.url, "mobile"),
+    runPageSpeedInsights(page.url, "desktop"),
+  ]);
+
+  await db
+    .update(pages)
+    .set({ psiScoreMobile: mobile, psiScoreDesktop: desktop })
+    .where(eq(pages.id, pageId));
+
+  return { mobile, desktop };
 }
 
 export async function runPsiAnalysis(projectId: string) {

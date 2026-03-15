@@ -36,6 +36,8 @@ export const projects = pgTable("projects", {
     seoExtractionProgress?: { completed: number; total: number };
     psiComplete?: boolean;
     psiProgress?: { completed: number; total: number };
+    cruxOrigin?: import("@/services/crux").CruxOriginData;
+    cruxHistory?: import("@/services/crux").CruxHistoryData;
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
