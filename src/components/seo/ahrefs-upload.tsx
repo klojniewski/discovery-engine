@@ -37,6 +37,7 @@ export function AhrefsUpload({
       setUploading(true);
       setError(null);
       const newResults: UploadResult[] = [];
+      const errors: string[] = [];
 
       for (const file of Array.from(files)) {
         try {
@@ -44,16 +45,17 @@ export function AhrefsUpload({
           formData.append("file", file);
           const result = await uploadAhrefsCsv(projectId, formData);
           if (result.error) {
-            setError(result.error);
+            errors.push(`${file.name}: ${result.error}`);
           } else {
             newResults.push(result as UploadResult);
           }
         } catch (err) {
-          setError(
-            err instanceof Error ? err.message : "Upload failed"
-          );
+          const msg = err instanceof Error ? err.message : "Upload failed";
+          errors.push(`${file.name}: ${msg}`);
         }
       }
+
+      if (errors.length > 0) setError(errors.join("\n"));
 
       setResults(newResults);
       setUploading(false);
