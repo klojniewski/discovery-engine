@@ -433,6 +433,26 @@ export async function getRedirectCriticalPages(
   };
 }
 
+export async function getPsiCandidatePages(projectId: string) {
+  // Same selection logic as runPsiAnalysis — representative pages with screenshots
+  return db
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+      templateId: pages.templateId,
+      screenshotUrl: pages.screenshotUrl,
+      psiScoreMobile: pages.psiScoreMobile,
+      psiScoreDesktop: pages.psiScoreDesktop,
+    })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.screenshotUrl))
+    )
+    .orderBy(pages.url)
+    .limit(25);
+}
+
 export async function getPsiPages(projectId: string) {
   const items = await db
     .select({

@@ -1,5 +1,9 @@
 import { getProject } from "@/actions/projects";
-import { getSeoStatus, getPsiPages } from "@/actions/seo";
+import {
+  getSeoStatus,
+  getPsiPages,
+  getPsiCandidatePages,
+} from "@/actions/seo";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +43,9 @@ export default async function PerformancePage({
 
   const status = await getSeoStatus(id);
   const psiData = status.psiComplete ? await getPsiPages(id) : null;
+  const candidates = !status.psiComplete
+    ? await getPsiCandidatePages(id)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,13 +87,67 @@ export default async function PerformancePage({
         </CardContent>
       </Card>
 
-      {/* Summary */}
+      {/* Before running: show candidate pages */}
+      {!status.psiComplete && candidates && candidates.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-1">
+            Pages to be scored ({candidates.length})
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            These are representative pages — one per template, selected
+            during analysis. Each page has a screenshot, indicating it
+            represents a distinct page type on the site.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">URL</th>
+                  <th className="py-2 pr-4 font-medium">Title</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((page) => (
+                  <tr key={page.id} className="border-b hover:bg-muted/50">
+                    <td className="py-2 pr-4 max-w-[400px]">
+                      <span
+                        className="truncate block text-xs"
+                        title={page.url}
+                      >
+                        {urlPath(page.url)}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 max-w-[300px]">
+                      <span className="truncate block text-xs text-muted-foreground">
+                        {page.title || "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!status.psiComplete &&
+        candidates &&
+        candidates.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No representative pages found. Run the analysis pipeline first to
+            generate screenshots.
+          </p>
+        )}
+
+      {/* After running: show results */}
       {psiData && psiData.items.length > 0 && (
         <>
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardContent className="pt-6">
-                <p className={`text-3xl font-bold ${scoreColor(psiData.avgMobile)}`}>
+                <p
+                  className={`text-3xl font-bold ${scoreColor(psiData.avgMobile)}`}
+                >
                   {psiData.avgMobile ?? "—"}
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -96,7 +157,9 @@ export default async function PerformancePage({
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className={`text-3xl font-bold ${scoreColor(psiData.avgDesktop)}`}>
+                <p
+                  className={`text-3xl font-bold ${scoreColor(psiData.avgDesktop)}`}
+                >
                   {psiData.avgDesktop ?? "—"}
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -106,7 +169,6 @@ export default async function PerformancePage({
             </Card>
           </div>
 
-          {/* Pages table sorted by worst mobile score */}
           <div>
             <h3 className="text-lg font-semibold mb-1">
               Pages by Performance
