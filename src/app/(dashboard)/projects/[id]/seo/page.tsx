@@ -8,7 +8,6 @@ import { SeoTable } from "@/components/seo/seo-table";
 import {
   SeoExtractionButton,
   ComputeScoresButton,
-  PsiButton,
 } from "@/components/seo/seo-actions";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -53,64 +52,31 @@ export default async function SeoPage({
       </div>
 
       {/* Section A: Data Sources */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* On-page SEO */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">On-page SEO</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div>
-              {status.seoExtractionComplete ? (
-                <Badge variant="secondary">
-                  Extracted ({status.extractedCount} pages)
-                </Badge>
-              ) : status.seoExtractionProgress ? (
-                <Badge variant="outline">
-                  Extracting... {status.seoExtractionProgress.completed}/
-                  {status.seoExtractionProgress.total}
-                </Badge>
-              ) : (
-                <Badge variant="outline">Not run</Badge>
-              )}
-            </div>
-            <SeoExtractionButton
-              projectId={id}
-              done={status.seoExtractionComplete}
-            />
-          </CardContent>
-        </Card>
-
-        {/* PageSpeed Insights */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">PageSpeed Insights</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div>
-              {status.psiComplete ? (
-                <Badge variant="secondary">
-                  {status.psiScoredCount} pages scored
-                </Badge>
-              ) : status.psiProgress ? (
-                <Badge variant="outline">
-                  Running... {status.psiProgress.completed}/
-                  {status.psiProgress.total}
-                </Badge>
-              ) : (
-                <Badge variant="outline">
-                  {status.hasPsiKey ? "Not run" : "Not configured"}
-                </Badge>
-              )}
-            </div>
-            <PsiButton
-              projectId={id}
-              done={status.psiComplete}
-              hasKey={status.hasPsiKey}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">On-page SEO</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <div>
+            {status.seoExtractionComplete ? (
+              <Badge variant="secondary">
+                Extracted ({status.extractedCount} pages)
+              </Badge>
+            ) : status.seoExtractionProgress ? (
+              <Badge variant="outline">
+                Extracting... {status.seoExtractionProgress.completed}/
+                {status.seoExtractionProgress.total}
+              </Badge>
+            ) : (
+              <Badge variant="outline">Not run</Badge>
+            )}
+          </div>
+          <SeoExtractionButton
+            projectId={id}
+            done={status.seoExtractionComplete}
+          />
+        </CardContent>
+      </Card>
 
       {/* Ahrefs Upload */}
       <AhrefsUpload

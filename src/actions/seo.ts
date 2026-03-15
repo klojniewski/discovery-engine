@@ -433,6 +433,37 @@ export async function getRedirectCriticalPages(
   };
 }
 
+export async function getPsiPages(projectId: string) {
+  const items = await db
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+      psiScoreMobile: pages.psiScoreMobile,
+      psiScoreDesktop: pages.psiScoreDesktop,
+    })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.psiScoreMobile))
+    )
+    .orderBy(sql`${pages.psiScoreMobile} ASC NULLS LAST`);
+
+  const avgMobile =
+    items.length > 0
+      ? Math.round(
+          items.reduce((s, p) => s + (p.psiScoreMobile ?? 0), 0) / items.length
+        )
+      : null;
+  const avgDesktop =
+    items.length > 0
+      ? Math.round(
+          items.reduce((s, p) => s + (p.psiScoreDesktop ?? 0), 0) / items.length
+        )
+      : null;
+
+  return { items, avgMobile, avgDesktop };
+}
+
 export async function runPsiAnalysis(projectId: string) {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) {
