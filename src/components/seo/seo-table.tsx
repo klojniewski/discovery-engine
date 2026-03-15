@@ -1,6 +1,12 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface SeoPageRow {
   id: string;
@@ -34,6 +40,30 @@ const TIER_CONFIG: Record<string, { label: string; color: string }> = {
   archive: { label: "Archive", color: "bg-red-100 text-red-800" },
 };
 
+function HeaderWithTooltip({
+  label,
+  tooltip,
+  align = "left",
+}: {
+  label: string;
+  tooltip: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <div className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : ""}`}>
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger className="cursor-help">
+          <Info className="h-3 w-3 text-muted-foreground" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs font-normal">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
   return (
     <div className="rounded-lg border overflow-hidden">
@@ -41,12 +71,24 @@ export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
         <thead>
           <tr className="border-b bg-muted/50">
             <th className="text-left p-3 font-medium">URL</th>
-            <th className="text-right p-3 font-medium">Traffic</th>
-            <th className="text-right p-3 font-medium">Value</th>
-            <th className="text-right p-3 font-medium">RDs</th>
-            <th className="text-left p-3 font-medium">Top Keyword</th>
-            <th className="text-right p-3 font-medium">SEO Score</th>
-            <th className="text-left p-3 font-medium">Tier</th>
+            <th className="text-right p-3 font-medium">
+              <HeaderWithTooltip label="Traffic" tooltip="Estimated monthly organic visits from Google, sourced from Ahrefs" />
+            </th>
+            <th className="text-right p-3 font-medium">
+              <HeaderWithTooltip label="Value" tooltip="Monthly traffic value in USD — what this organic traffic would cost as Google Ads. Higher value = more important to preserve." align="right" />
+            </th>
+            <th className="text-right p-3 font-medium">
+              <HeaderWithTooltip label="RDs" tooltip="Referring Domains — number of unique websites linking to this page. Pages with many backlinks carry link equity that must be redirected." align="right" />
+            </th>
+            <th className="text-left p-3 font-medium">
+              <HeaderWithTooltip label="Top Keyword" tooltip="The highest-ranking keyword this page appears for in Google search results" />
+            </th>
+            <th className="text-right p-3 font-medium">
+              <HeaderWithTooltip label="SEO Score" tooltip="Composite score (0-100) based on traffic value (45%), referring domains (35%), and organic traffic (20%). Pages scoring 50+ are flagged as redirect-critical." align="right" />
+            </th>
+            <th className="text-left p-3 font-medium">
+              <HeaderWithTooltip label="Tier" tooltip="Content migration tier assigned during analysis — determines whether the page should be migrated, improved, consolidated, or archived" />
+            </th>
           </tr>
         </thead>
         <tbody>
