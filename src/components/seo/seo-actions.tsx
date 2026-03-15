@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   runOnPageSeoExtraction,
   computeSeoScores,
   runPsiAnalysis,
+  getSeoStatus,
 } from "@/actions/seo";
 
 export function SeoExtractionButton({
@@ -16,6 +17,21 @@ export function SeoExtractionButton({
   done: boolean;
 }) {
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    const interval = setInterval(async () => {
+      const status = await getSeoStatus(projectId);
+      if (status.seoExtractionProgress) {
+        setProgress(status.seoExtractionProgress);
+      }
+      if (status.seoExtractionComplete) {
+        clearInterval(interval);
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [running, projectId]);
 
   return (
     <Button
@@ -28,7 +44,13 @@ export function SeoExtractionButton({
         window.location.reload();
       }}
     >
-      {running ? "Extracting..." : done ? "Re-extract" : "Extract"}
+      {running
+        ? progress
+          ? `Extracting... ${progress.completed}/${progress.total}`
+          : "Extracting..."
+        : done
+          ? "Re-extract"
+          : "Extract"}
     </Button>
   );
 }
@@ -63,6 +85,21 @@ export function PsiButton({
   hasCandidates?: boolean;
 }) {
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    const interval = setInterval(async () => {
+      const status = await getSeoStatus(projectId);
+      if (status.psiProgress) {
+        setProgress(status.psiProgress);
+      }
+      if (status.psiComplete) {
+        clearInterval(interval);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [running, projectId]);
 
   if (!hasKey) {
     return (
@@ -83,7 +120,13 @@ export function PsiButton({
         window.location.reload();
       }}
     >
-      {running ? "Running PSI..." : done ? "Re-run PSI" : "Run PSI"}
+      {running
+        ? progress
+          ? `Running PSI... ${progress.completed}/${progress.total}`
+          : "Running PSI..."
+        : done
+          ? "Re-run PSI"
+          : "Run PSI"}
     </Button>
   );
 }
