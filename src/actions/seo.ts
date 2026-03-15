@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { projects, pages } from "@/db/schema";
+import { projects, pages, templates } from "@/db/schema";
 import { eq, and, isNotNull, sql } from "drizzle-orm";
 import { extractOnPageSeo, computeSeoScore } from "@/services/seo";
 import {
@@ -433,24 +433,51 @@ export async function getRedirectCriticalPages(
   };
 }
 
-export async function getPsiCandidatePages(projectId: string) {
-  // Same selection logic as runPsiAnalysis — representative pages with screenshots
-  return db
+/**
+ * Select representative pages for PSI scoring:
+ * 1. One page per template (via templates.representativePageId)
+ * 2. If fewer than 25, pad with top pages by internal link count
+ */
+async function selectRepresentativePages(projectId: string) {
+  // Get template representative pages
+  const templateReps = await db
     .select({
       id: pages.id,
       url: pages.url,
       title: pages.title,
-      templateId: pages.templateId,
-      screenshotUrl: pages.screenshotUrl,
-      psiScoreMobile: pages.psiScoreMobile,
-      psiScoreDesktop: pages.psiScoreDesktop,
     })
-    .from(pages)
-    .where(
-      and(eq(pages.projectId, projectId), isNotNull(pages.screenshotUrl))
-    )
-    .orderBy(pages.url)
-    .limit(25);
+    .from(templates)
+    .innerJoin(pages, eq(templates.representativePageId, pages.id))
+    .where(eq(templates.projectId, projectId));
+
+  const selectedIds = new Set(templateReps.map((p) => p.id));
+
+  // If fewer than 25, pad with top pages by internal link count
+  let extra: typeof templateReps = [];
+  if (selectedIds.size < 25) {
+    extra = await db
+      .select({
+        id: pages.id,
+        url: pages.url,
+        title: pages.title,
+      })
+      .from(pages)
+      .where(
+        and(
+          eq(pages.projectId, projectId),
+          isNotNull(pages.internalLinkCount)
+        )
+      )
+      .orderBy(sql`${pages.internalLinkCount} DESC NULLS LAST`)
+      .limit(25);
+    extra = extra.filter((p) => !selectedIds.has(p.id));
+  }
+
+  return [...templateReps, ...extra].slice(0, 25);
+}
+
+export async function getPsiCandidatePages(projectId: string) {
+  return selectRepresentativePages(projectId);
 }
 
 export async function getPsiPages(projectId: string) {
@@ -490,17 +517,7 @@ export async function runPsiAnalysis(projectId: string) {
     return { error: "PAGESPEED_API_KEY not configured" };
   }
 
-  // Get representative pages (those with screenshots — same set used for section detection)
-  const repPages = await db
-    .select({ id: pages.id, url: pages.url })
-    .from(pages)
-    .where(
-      and(
-        eq(pages.projectId, projectId),
-        isNotNull(pages.screenshotUrl)
-      )
-    )
-    .limit(25);
+  const repPages = await selectRepresentativePages(projectId);
 
   const total = repPages.length;
   let completed = 0;

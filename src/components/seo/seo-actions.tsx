@@ -55,10 +55,12 @@ export function PsiButton({
   projectId,
   done,
   hasKey,
+  hasCandidates = true,
 }: {
   projectId: string;
   done: boolean;
   hasKey: boolean;
+  hasCandidates?: boolean;
 }) {
   const [running, setRunning] = useState(false);
 
@@ -74,7 +76,7 @@ export function PsiButton({
     <Button
       variant={done ? "outline" : "default"}
       size="sm"
-      disabled={running}
+      disabled={running || !hasCandidates}
       onClick={async () => {
         setRunning(true);
         await runPsiAnalysis(projectId);

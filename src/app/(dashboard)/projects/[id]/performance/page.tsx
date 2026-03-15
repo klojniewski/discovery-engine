@@ -43,9 +43,7 @@ export default async function PerformancePage({
 
   const status = await getSeoStatus(id);
   const psiData = status.psiComplete ? await getPsiPages(id) : null;
-  const candidates = !status.psiComplete
-    ? await getPsiCandidatePages(id)
-    : null;
+  const candidates = await getPsiCandidatePages(id);
 
   return (
     <div className="space-y-6">
@@ -83,12 +81,13 @@ export default async function PerformancePage({
             projectId={id}
             done={status.psiComplete}
             hasKey={status.hasPsiKey}
+            hasCandidates={candidates.length > 0}
           />
         </CardContent>
       </Card>
 
       {/* Before running: show candidate pages */}
-      {!status.psiComplete && candidates && candidates.length > 0 && (
+      {!status.psiComplete && candidates.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold mb-1">
             Pages to be scored ({candidates.length})
@@ -130,9 +129,7 @@ export default async function PerformancePage({
         </div>
       )}
 
-      {!status.psiComplete &&
-        candidates &&
-        candidates.length === 0 && (
+      {!status.psiComplete && candidates.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No representative pages found. Run the analysis pipeline first to
             generate screenshots.
