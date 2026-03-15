@@ -82,6 +82,7 @@ export default async function PerformancePage({
             done={status.psiComplete}
             hasKey={status.hasPsiKey}
             hasCandidates={candidates.length > 0}
+            initialProgress={status.psiProgress}
           />
         </CardContent>
       </Card>

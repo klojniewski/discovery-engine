@@ -12,12 +12,14 @@ import {
 export function SeoExtractionButton({
   projectId,
   done,
+  initialProgress,
 }: {
   projectId: string;
   done: boolean;
+  initialProgress?: { completed: number; total: number } | null;
 }) {
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [running, setRunning] = useState(!!initialProgress);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(initialProgress ?? null);
 
   useEffect(() => {
     if (!running) return;
@@ -78,14 +80,16 @@ export function PsiButton({
   done,
   hasKey,
   hasCandidates = true,
+  initialProgress,
 }: {
   projectId: string;
   done: boolean;
   hasKey: boolean;
   hasCandidates?: boolean;
+  initialProgress?: { completed: number; total: number } | null;
 }) {
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [running, setRunning] = useState(!!initialProgress);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(initialProgress ?? null);
 
   useEffect(() => {
     if (!running) return;

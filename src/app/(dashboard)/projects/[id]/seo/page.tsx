@@ -74,6 +74,7 @@ export default async function SeoPage({
           <SeoExtractionButton
             projectId={id}
             done={status.seoExtractionComplete}
+            initialProgress={status.seoExtractionProgress}
           />
         </CardContent>
       </Card>
