@@ -125,35 +125,46 @@ export default async function SeoPage({
           <SeoTable pages={seoData.items} />
 
           {/* Pagination */}
-          {seoData.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {currentPage} of {seoData.totalPages}
-              </p>
-              <div className="flex items-center gap-1">
-                <Link
-                  href={buildPageUrl(currentPage - 1)}
-                  className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
-                    currentPage <= 1
-                      ? "pointer-events-none opacity-50"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Link>
-                <Link
-                  href={buildPageUrl(currentPage + 1)}
-                  className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
-                    currentPage >= seoData.totalPages
-                      ? "pointer-events-none opacity-50"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
+          {seoData.totalPages > 1 && (() => {
+            const startItem = (currentPage - 1) * 50 + 1;
+            const endItem = Math.min(currentPage * 50, seoData.total);
+            return (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startItem}–{endItem} of {seoData.total}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Link
+                    href={buildPageUrl(currentPage - 1)}
+                    className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
+                      currentPage <= 1
+                        ? "pointer-events-none opacity-50"
+                        : "hover:bg-muted"
+                    }`}
+                    aria-disabled={currentPage <= 1}
+                    tabIndex={currentPage <= 1 ? -1 : undefined}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Link>
+                  <span className="px-2 text-sm text-muted-foreground">
+                    Page {currentPage} of {seoData.totalPages}
+                  </span>
+                  <Link
+                    href={buildPageUrl(currentPage + 1)}
+                    className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
+                      currentPage >= seoData.totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "hover:bg-muted"
+                    }`}
+                    aria-disabled={currentPage >= seoData.totalPages}
+                    tabIndex={currentPage >= seoData.totalPages ? -1 : undefined}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
