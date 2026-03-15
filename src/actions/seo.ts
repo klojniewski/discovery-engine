@@ -319,7 +319,7 @@ export async function getSeoStatus(projectId: string) {
     .select({ count: sql<number>`count(*)` })
     .from(pages)
     .where(
-      and(eq(pages.projectId, projectId), isNotNull(pages.canonicalUrl))
+      and(eq(pages.projectId, projectId), isNotNull(pages.internalLinkCount))
     );
 
   // Count pages with PSI scores
