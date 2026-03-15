@@ -142,5 +142,10 @@ src/
 docs/
   PRD.md                  # Product requirements
   plans/                  # Build plans
+  solutions/              # Learnings and gotchas from past work — check before building
   example-ahrefs-csv/     # Ahrefs CSV fixtures for testing
 ```
+
+## Learnings
+
+Check `docs/solutions/` before starting new work. These documents capture gotchas, patterns, and decisions from past features so we don't repeat mistakes. Add a new file after completing any non-trivial feature.
