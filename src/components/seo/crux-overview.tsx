@@ -235,7 +235,7 @@ export function CruxOverview({
 
               <p className="text-xs text-muted-foreground">
                 Data from {origin.origin} &middot; Fetched{" "}
-                {new Date(origin.fetchedAt).toLocaleDateString()}
+                {origin.fetchedAt.slice(0, 10)}
               </p>
             </div>
           )}
