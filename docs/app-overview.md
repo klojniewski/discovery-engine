@@ -90,10 +90,10 @@ The tool runs a 4-phase pipeline, with optional SEO enrichment at any point afte
 
 **SEO Enrichment** (optional, user-triggered)
 - **On-page extraction:** Parses stored HTML with cheerio for H1, canonical, meta robots, schema.org types, internal link count
-- **Ahrefs CSV import:** User uploads Top Pages and Best by Links exports — auto-detected, parsed (UTF-16LE/UTF-8), matched to crawled pages by normalized URL
+- **Ahrefs CSV import:** User uploads Top Pages and Best by Links exports — auto-detected, parsed (UTF-16LE/UTF-8), matched to crawled pages by normalized URL. Note: Organic Keywords export is not yet supported (v2) — local intent pages with low CPC but high business value are invisible without it
 - **PageSpeed Insights:** Lab performance scores (mobile + desktop) on representative pages
 - **Chrome UX Report:** Real user Core Web Vitals (LCP, INP, CLS, FCP, TTFB) at domain level + 25-week history
-- **SEO scoring:** Weighted composite (45% traffic value, 35% referring domains, 20% organic traffic) — flags redirect-critical pages
+- **SEO scoring:** Weighted composite (45% organic traffic, 35% referring domains, 20% on-page health) — flags redirect-critical pages. Post-enrichment tier correction upgrades archive pages with significant traffic/links
 
 ### Core Integrations
 
@@ -116,7 +116,7 @@ The tool runs a 4-phase pipeline, with optional SEO enrichment at any point afte
                          ┌─────────────────────────────────────────────────┐
                          │                   INPUTS                        │
                          │                                                 │
-  Website URL ──────────►│  Firecrawl API ──► pages table (1147 rows)     │
+  Website URL ──────────►│  Firecrawl API ──► pages table (~500 rows)     │
                          │    - URL, title, meta, HTML, markdown           │
                          │    - word count, content hash                   │
                          │                                                 │
@@ -171,3 +171,7 @@ The tool runs a 4-phase pipeline, with optional SEO enrichment at any point afte
 - **Ahrefs CSV over API** — Ahrefs API costs $500+/month. CSV exports from a $99 plan give the same data. Most agencies already have Ahrefs.
 - **CrUX over PSI for domain baseline** — One free API call gives real user data for the entire domain. PSI is lab-only and per-page. CrUX is more credible in sales conversations.
 - **SEO enrichment is fully optional** — The core pipeline (crawl → classify → detect → report) works without any SEO data. Each data source contributes independently.
+- **SEO scoring: 45% organic traffic + 35% RDs + 20% on-page health** — Previous formula double-counted by using both traffic value (traffic × CPC) and organic traffic at 65% combined. Fixed to use organic traffic as the traffic signal and on-page health (H1, canonical, schema.org, meta robots, internal links) as the third factor. Performance deliberately excluded.
+- **Tier overrides post-enrichment** — After Ahrefs import, pages with organic traffic >= 50/mo or referring domains >= 5 get upgraded from archive to consolidate minimum. Prevents classification (which runs without traffic data) from archiving pages that are actually important. Threshold of 50 visits/mo chosen because Ahrefs Top Pages export only includes pages with measurable traffic.
+- **Organic Keywords CSV deferred to v2** — Traffic value from Ahrefs already encodes intent implicitly via CPC (transactional pages have higher CPC = higher traffic value). **Known gap:** local intent pages (e.g., "dentist teeth whitening London") have low CPC but high business value — they are invisible without the Organic Keywords export. This gap is flagged in the SEO enrichment UI when running without keywords data. Planned for v2 alongside intent-based redirect priority.
+- **Technical Recommendations and Investment Summary sections deferred** — Report sections 5-7 require SEO baseline data and Claude Sonnet narrative generation to produce valid recommendations. Planned for post-SEO enrichment build, not current scope. Current report has 6 sections; sections 5-7 are explicitly deferred, not dropped.

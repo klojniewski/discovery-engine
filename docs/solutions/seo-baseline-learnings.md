@@ -25,8 +25,10 @@ date: 2026-03-15
 ## SEO Scoring
 
 - Performance (PSI) is deliberately excluded from the SEO score — a page ranking well despite bad performance is MORE important to protect, not less
-- Score formula: traffic value (45%) + referring domains (35%) + organic traffic (20%), all log-normalized
-- Redirect-critical threshold: score >= 50, OR traffic value >= $50/mo, OR referring domains >= 5
+- **Original formula was double-counting:** traffic value (45%) + organic traffic (20%) = 65% on the same signal (traffic value IS traffic × CPC)
+- **Fixed formula:** organic traffic 45% + referring domains 35% + on-page health score 20% (H1, canonical, meta robots, schema.org, internal links)
+- Redirect-critical threshold: score >= 50, OR organic traffic >= 100/mo, OR referring domains >= 5
+- **Post-enrichment tier correction:** after Ahrefs import, archive-tier pages with organic traffic >= 50 or referring domains >= 5 get upgraded to consolidate. Prevents classification (which runs without traffic data) from archiving important pages
 
 ## CrUX vs PageSpeed Insights
 
