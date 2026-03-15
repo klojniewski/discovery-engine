@@ -109,7 +109,40 @@ export async function computeSeoScores(projectId: string) {
     scored++;
   }
 
-  return { scored, total: projectPages.length };
+  // After scoring, correct any archive-tier pages that have significant traffic/links
+  const corrected = await correctArchiveTiers(projectId);
+
+  return { scored, total: projectPages.length, tiersCorreected: corrected };
+}
+
+/**
+ * Post-enrichment tier correction: after Ahrefs data is imported, pages in
+ * the "archive" tier that have significant organic traffic or backlinks should
+ * be upgraded to "consolidate" minimum.
+ *
+ * Thresholds:
+ * - organic_traffic >= 50 visits/mo (chosen because Ahrefs Top Pages export
+ *   only includes pages with measurable traffic, so even 50 visits means
+ *   Google considers the page relevant enough to send users)
+ * - referring_domains >= 5 (5+ unique sites linking = meaningful link equity
+ *   that should be preserved via redirect, not discarded)
+ *
+ * Returns the number of pages corrected.
+ */
+export async function correctArchiveTiers(projectId: string) {
+  const result = await db
+    .update(pages)
+    .set({ contentTier: "consolidate" })
+    .where(
+      and(
+        eq(pages.projectId, projectId),
+        eq(pages.contentTier, "archive"),
+        sql`(${pages.organicTraffic} >= 50 OR ${pages.referringDomains} >= 5)`
+      )
+    )
+    .returning({ id: pages.id });
+
+  return result.length;
 }
 
 export async function uploadAhrefsCsv(projectId: string, formData: FormData) {
@@ -209,12 +242,16 @@ export async function uploadAhrefsCsv(projectId: string, formData: FormData) {
       },
     });
 
+    // Correct archive tiers for pages that now have significant traffic/links
+    const tiersCorrected = await correctArchiveTiers(projectId);
+
     return {
       fileType: parsed.fileType,
       rowCount: parsed.rowCount,
       matchedCount,
       unmatchedCount: deduped.size - matchedCount,
       parseErrors: parsed.parseErrors,
+      tiersCorrected,
     };
   } else {
     const rows = parsed.rows as BestLinksRow[];
@@ -268,12 +305,16 @@ export async function uploadAhrefsCsv(projectId: string, formData: FormData) {
       },
     });
 
+    // Correct archive tiers for pages that now have significant links
+    const tiersCorrected = await correctArchiveTiers(projectId);
+
     return {
       fileType: parsed.fileType,
       rowCount: parsed.rowCount,
       matchedCount,
       unmatchedCount: deduped.size - matchedCount,
       parseErrors: parsed.parseErrors,
+      tiersCorrected,
     };
   }
 }
