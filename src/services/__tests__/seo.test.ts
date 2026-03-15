@@ -1,5 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { extractOnPageSeo, computeSeoScore } from "@/services/seo";
+import {
+  extractOnPageSeo,
+  computeSeoScore,
+  computeOnPageHealthScore,
+} from "@/services/seo";
+
+const NULL_ON_PAGE = {
+  h1: null,
+  canonicalUrl: null,
+  metaRobots: null,
+  schemaOrgTypes: null,
+  internalLinkCount: null,
+};
+
+const PERFECT_ON_PAGE = {
+  h1: "Test Page",
+  canonicalUrl: "https://example.com/page",
+  metaRobots: null,
+  schemaOrgTypes: ["Article"],
+  internalLinkCount: 10,
+};
 
 describe("extractOnPageSeo", () => {
   it("extracts h1 tag", () => {
@@ -63,68 +83,112 @@ describe("extractOnPageSeo", () => {
   });
 });
 
-describe("computeSeoScore", () => {
+describe("computeOnPageHealthScore", () => {
   it("returns 0 for all nulls", () => {
+    // metaRobots null = not noindexed = 20 points
+    expect(computeOnPageHealthScore(NULL_ON_PAGE)).toBe(20);
+  });
+
+  it("returns 100 for perfect on-page signals", () => {
+    expect(computeOnPageHealthScore(PERFECT_ON_PAGE)).toBe(100);
+  });
+
+  it("penalises noindex pages", () => {
+    const score = computeOnPageHealthScore({
+      ...PERFECT_ON_PAGE,
+      metaRobots: "noindex, nofollow",
+    });
+    expect(score).toBe(80); // 100 - 20 for noindex
+  });
+
+  it("gives partial credit for some signals", () => {
+    const score = computeOnPageHealthScore({
+      h1: "Hello",
+      canonicalUrl: null,
+      metaRobots: null,
+      schemaOrgTypes: null,
+      internalLinkCount: 1,
+    });
+    expect(score).toBe(45); // 25 (h1) + 20 (not noindex) + 0 (no canonical, no schema, < 3 links)
+  });
+});
+
+describe("computeSeoScore", () => {
+  it("returns 0 for all nulls and no on-page signals", () => {
     const result = computeSeoScore({
-      trafficValueCents: null,
-      referringDomains: null,
       organicTraffic: null,
+      referringDomains: null,
+      ...NULL_ON_PAGE,
     });
-    expect(result.score).toBe(0);
+    // on-page health = 20 (not noindexed), weighted at 20% = 4
+    expect(result.score).toBe(4);
     expect(result.isRedirectCritical).toBe(false);
   });
 
-  it("returns 0 for all zeros", () => {
+  it("returns on-page health only when no external data", () => {
     const result = computeSeoScore({
-      trafficValueCents: 0,
-      referringDomains: 0,
       organicTraffic: 0,
+      referringDomains: 0,
+      ...PERFECT_ON_PAGE,
     });
-    expect(result.score).toBe(0);
+    // health = 100, weighted at 20% = 20
+    expect(result.score).toBe(20);
     expect(result.isRedirectCritical).toBe(false);
   });
 
-  it("marks high traffic value pages as redirect-critical", () => {
+  it("marks high traffic pages as redirect-critical", () => {
     const result = computeSeoScore({
-      trafficValueCents: 10000, // $100/mo
+      organicTraffic: 500,
       referringDomains: 0,
-      organicTraffic: 0,
+      ...NULL_ON_PAGE,
     });
-    expect(result.isRedirectCritical).toBe(true);
+    expect(result.isRedirectCritical).toBe(true); // 500 >= 100 threshold
   });
 
   it("marks pages with 5+ referring domains as redirect-critical", () => {
     const result = computeSeoScore({
-      trafficValueCents: 0,
-      referringDomains: 5,
       organicTraffic: 0,
+      referringDomains: 5,
+      ...NULL_ON_PAGE,
     });
     expect(result.isRedirectCritical).toBe(true);
   });
 
-  it("scores high-value pages highly", () => {
+  it("scores high-value pages with perfect on-page highly", () => {
     const result = computeSeoScore({
-      trafficValueCents: 50000, // $500/mo = max expected
-      referringDomains: 50,
       organicTraffic: 2000,
+      referringDomains: 50,
+      ...PERFECT_ON_PAGE,
     });
     expect(result.score).toBe(100);
     expect(result.isRedirectCritical).toBe(true);
   });
 
-  it("weighs traffic value highest", () => {
+  it("weighs organic traffic highest (45%)", () => {
     const trafficOnly = computeSeoScore({
-      trafficValueCents: 10000,
+      organicTraffic: 500,
       referringDomains: 0,
-      organicTraffic: 0,
+      ...NULL_ON_PAGE,
     });
     const linksOnly = computeSeoScore({
-      trafficValueCents: 0,
-      referringDomains: 10,
       organicTraffic: 0,
+      referringDomains: 10,
+      ...NULL_ON_PAGE,
     });
-    // Traffic should contribute more to score due to 0.45 weight
-    expect(trafficOnly.score).toBeGreaterThan(0);
-    expect(linksOnly.score).toBeGreaterThan(0);
+    expect(trafficOnly.score).toBeGreaterThan(linksOnly.score);
+  });
+
+  it("includes on-page health in score", () => {
+    const withHealth = computeSeoScore({
+      organicTraffic: 100,
+      referringDomains: 3,
+      ...PERFECT_ON_PAGE,
+    });
+    const withoutHealth = computeSeoScore({
+      organicTraffic: 100,
+      referringDomains: 3,
+      ...NULL_ON_PAGE,
+    });
+    expect(withHealth.score).toBeGreaterThan(withoutHealth.score);
   });
 });

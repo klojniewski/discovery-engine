@@ -79,27 +79,34 @@ export async function computeSeoScores(projectId: string) {
   const projectPages = await db
     .select({
       id: pages.id,
-      trafficValueCents: pages.trafficValueCents,
-      referringDomains: pages.referringDomains,
       organicTraffic: pages.organicTraffic,
+      referringDomains: pages.referringDomains,
+      h1: pages.h1,
+      canonicalUrl: pages.canonicalUrl,
+      metaRobots: pages.metaRobots,
+      schemaOrgTypes: pages.schemaOrgTypes,
+      internalLinkCount: pages.internalLinkCount,
     })
     .from(pages)
     .where(eq(pages.projectId, projectId));
 
   let scored = 0;
   for (const page of projectPages) {
-    const { score, isRedirectCritical } = computeSeoScore(page);
-    if (
-      page.trafficValueCents !== null ||
+    const hasAnyData =
+      page.organicTraffic !== null ||
       page.referringDomains !== null ||
-      page.organicTraffic !== null
-    ) {
-      await db
-        .update(pages)
-        .set({ seoScore: score, isRedirectCritical })
-        .where(eq(pages.id, page.id));
-      scored++;
-    }
+      page.internalLinkCount !== null;
+    if (!hasAnyData) continue;
+
+    const { score, isRedirectCritical } = computeSeoScore({
+      ...page,
+      schemaOrgTypes: page.schemaOrgTypes as string[] | null,
+    });
+    await db
+      .update(pages)
+      .set({ seoScore: score, isRedirectCritical })
+      .where(eq(pages.id, page.id));
+    scored++;
   }
 
   return { scored, total: projectPages.length };
