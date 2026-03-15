@@ -4,6 +4,12 @@ import { db } from "@/db";
 import { projects, pages } from "@/db/schema";
 import { eq, and, isNotNull, sql } from "drizzle-orm";
 import { extractOnPageSeo, computeSeoScore } from "@/services/seo";
+import {
+  parseAhrefsCsv,
+  type TopPageRow,
+  type BestLinksRow,
+} from "@/services/ahrefs-parser";
+import { normalizeUrl } from "@/lib/url";
 
 export async function runOnPageSeoExtraction(projectId: string) {
   const [project] = await db
@@ -90,6 +96,210 @@ export async function computeSeoScores(projectId: string) {
   }
 
   return { scored, total: projectPages.length };
+}
+
+export async function uploadAhrefsCsv(projectId: string, formData: FormData) {
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("No file provided");
+
+  const buffer = await file.arrayBuffer();
+  const parsed = parseAhrefsCsv(buffer);
+
+  // Get project to check domain
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) throw new Error("Project not found");
+
+  const projectDomain = new URL(project.websiteUrl).hostname.toLowerCase();
+
+  // Build URL → page ID lookup from crawled pages
+  const projectPages = await db
+    .select({ id: pages.id, url: pages.url })
+    .from(pages)
+    .where(eq(pages.projectId, projectId));
+
+  const urlToPageId = new Map<string, string>();
+  for (const p of projectPages) {
+    urlToPageId.set(normalizeUrl(p.url), p.id);
+  }
+
+  if (parsed.fileType === "top_pages") {
+    const rows = parsed.rows as TopPageRow[];
+
+    // Domain validation: check >30% of URLs match project domain
+    const domainMatches = rows.filter((r) => {
+      try {
+        return new URL(r.url).hostname.toLowerCase().includes(projectDomain);
+      } catch {
+        return false;
+      }
+    });
+    if (rows.length > 0 && domainMatches.length / rows.length < 0.3) {
+      return {
+        error: "This export appears to be for a different domain.",
+        fileType: parsed.fileType,
+      };
+    }
+
+    // Clear previous top pages data
+    await db
+      .update(pages)
+      .set({
+        organicTraffic: null,
+        trafficValueCents: null,
+        topKeyword: null,
+        topKeywordVolume: null,
+        topKeywordPosition: null,
+      })
+      .where(eq(pages.projectId, projectId));
+
+    // Deduplicate by normalized URL, keeping highest traffic value
+    const deduped = new Map<string, TopPageRow>();
+    for (const row of rows) {
+      const norm = normalizeUrl(row.url);
+      const existing = deduped.get(norm);
+      if (!existing || row.currentTrafficValue > existing.currentTrafficValue) {
+        deduped.set(norm, row);
+      }
+    }
+
+    let matchedCount = 0;
+    for (const [normUrl, row] of deduped) {
+      const pageId = urlToPageId.get(normUrl);
+      if (!pageId) continue;
+      await db
+        .update(pages)
+        .set({
+          organicTraffic: row.currentTraffic,
+          trafficValueCents: Math.round(row.currentTrafficValue * 100),
+          topKeyword: row.currentTopKeyword || null,
+          topKeywordVolume: row.currentTopKeywordVolume || null,
+          topKeywordPosition: row.currentTopKeywordPosition || null,
+          referringDomains: sql`GREATEST(${pages.referringDomains}, ${row.currentReferringDomains})`,
+        })
+        .where(eq(pages.id, pageId));
+      matchedCount++;
+    }
+
+    await updateProjectSettings(projectId, null, {
+      ahrefsUploads: {
+        ...((project.settings as Record<string, unknown>)?.ahrefsUploads as Record<string, unknown> ?? {}),
+        topPages: {
+          rowCount: parsed.rowCount,
+          matchedCount,
+          uploadedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return {
+      fileType: parsed.fileType,
+      rowCount: parsed.rowCount,
+      matchedCount,
+      unmatchedCount: deduped.size - matchedCount,
+      parseErrors: parsed.parseErrors,
+    };
+  } else {
+    const rows = parsed.rows as BestLinksRow[];
+
+    // Domain validation
+    const domainMatches = rows.filter((r) => {
+      try {
+        return new URL(r.pageUrl).hostname.toLowerCase().includes(projectDomain);
+      } catch {
+        return false;
+      }
+    });
+    if (rows.length > 0 && domainMatches.length / rows.length < 0.3) {
+      return {
+        error: "This export appears to be for a different domain.",
+        fileType: parsed.fileType,
+      };
+    }
+
+    // Deduplicate by normalized URL, keeping highest referring domains
+    const deduped = new Map<string, BestLinksRow>();
+    for (const row of rows) {
+      const norm = normalizeUrl(row.pageUrl);
+      const existing = deduped.get(norm);
+      if (!existing || row.referringDomains > existing.referringDomains) {
+        deduped.set(norm, row);
+      }
+    }
+
+    let matchedCount = 0;
+    for (const [normUrl, row] of deduped) {
+      const pageId = urlToPageId.get(normUrl);
+      if (!pageId) continue;
+      await db
+        .update(pages)
+        .set({
+          referringDomains: sql`GREATEST(${pages.referringDomains}, ${row.referringDomains})`,
+        })
+        .where(eq(pages.id, pageId));
+      matchedCount++;
+    }
+
+    await updateProjectSettings(projectId, null, {
+      ahrefsUploads: {
+        ...((project.settings as Record<string, unknown>)?.ahrefsUploads as Record<string, unknown> ?? {}),
+        bestLinks: {
+          rowCount: parsed.rowCount,
+          matchedCount,
+          uploadedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return {
+      fileType: parsed.fileType,
+      rowCount: parsed.rowCount,
+      matchedCount,
+      unmatchedCount: deduped.size - matchedCount,
+      parseErrors: parsed.parseErrors,
+    };
+  }
+}
+
+export async function clearAhrefsData(
+  projectId: string,
+  fileType: "top_pages" | "best_links"
+) {
+  if (fileType === "top_pages") {
+    await db
+      .update(pages)
+      .set({
+        organicTraffic: null,
+        trafficValueCents: null,
+        topKeyword: null,
+        topKeywordVolume: null,
+        topKeywordPosition: null,
+      })
+      .where(eq(pages.projectId, projectId));
+  }
+  // For best_links, clear referring domains (unless top_pages also set them)
+  if (fileType === "best_links") {
+    await db
+      .update(pages)
+      .set({ referringDomains: null })
+      .where(eq(pages.projectId, projectId));
+  }
+
+  const [project] = await db
+    .select({ settings: projects.settings })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  const settings = (project?.settings ?? {}) as Record<string, unknown>;
+  const uploads = (settings.ahrefsUploads ?? {}) as Record<string, unknown>;
+  const key = fileType === "top_pages" ? "topPages" : "bestLinks";
+  delete uploads[key];
+
+  await updateProjectSettings(projectId, null, { ahrefsUploads: uploads });
 }
 
 /** Helper to merge settings without overwriting unrelated keys */
