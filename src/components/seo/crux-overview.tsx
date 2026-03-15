@@ -26,36 +26,84 @@ function ratingColor(p75: number, goodMax: number, poorMin: number) {
 
 function DistributionBar({
   histogram,
+  p75,
+  goodMax,
+  poorMin,
+  formatValue,
 }: {
   histogram: { start: number; end?: number; density: number }[];
+  p75: number;
+  goodMax: number;
+  poorMin: number;
+  formatValue: (v: number) => string;
 }) {
   const good = histogram[0]?.density ?? 0;
   const mid = histogram[1]?.density ?? 0;
   const poor = histogram[2]?.density ?? 0;
 
+  // Position the marker: the bar segments are good|mid|poor by density percentage.
+  // Map p75 into a position: if p75 <= goodMax, it's within the green segment;
+  // if goodMax < p75 < poorMin, it's in amber; otherwise in red.
+  let markerPercent: number;
+  if (p75 <= goodMax) {
+    // Within green segment: position proportionally within green's width
+    const fraction = goodMax > 0 ? p75 / goodMax : 0;
+    markerPercent = fraction * good * 100;
+  } else if (p75 < poorMin) {
+    // Within amber segment
+    const fraction = (p75 - goodMax) / (poorMin - goodMax);
+    markerPercent = (good + fraction * mid) * 100;
+  } else {
+    // Within red segment — cap at a reasonable max (2x poorMin)
+    const maxVal = poorMin * 2;
+    const fraction = Math.min((p75 - poorMin) / (maxVal - poorMin), 1);
+    markerPercent = (good + mid + fraction * poor) * 100;
+  }
+
+  // Clamp between 1% and 99% so the marker is always visible
+  markerPercent = Math.max(1, Math.min(99, markerPercent));
+
   return (
-    <div className="flex h-2 rounded-full overflow-hidden w-full">
-      {good > 0 && (
+    <div className="relative">
+      {/* Score label above marker */}
+      <div className="relative h-5 mb-0.5">
         <div
-          className="bg-green-500"
-          style={{ width: `${(good * 100).toFixed(1)}%` }}
-          title={`Good: ${(good * 100).toFixed(0)}%`}
-        />
-      )}
-      {mid > 0 && (
+          className="absolute -translate-x-1/2 text-xs font-medium text-foreground whitespace-nowrap"
+          style={{ left: `${markerPercent}%` }}
+        >
+          {formatValue(p75)}
+        </div>
+      </div>
+      {/* Bar with marker */}
+      <div className="relative">
+        <div className="flex h-2 rounded-full overflow-hidden w-full">
+          {good > 0 && (
+            <div
+              className="bg-green-500"
+              style={{ width: `${(good * 100).toFixed(1)}%` }}
+            />
+          )}
+          {mid > 0 && (
+            <div
+              className="bg-amber-400"
+              style={{ width: `${(mid * 100).toFixed(1)}%` }}
+            />
+          )}
+          {poor > 0 && (
+            <div
+              className="bg-red-500"
+              style={{ width: `${(poor * 100).toFixed(1)}%` }}
+            />
+          )}
+        </div>
+        {/* Pin marker */}
         <div
-          className="bg-amber-400"
-          style={{ width: `${(mid * 100).toFixed(1)}%` }}
-          title={`Needs Improvement: ${(mid * 100).toFixed(0)}%`}
-        />
-      )}
-      {poor > 0 && (
-        <div
-          className="bg-red-500"
-          style={{ width: `${(poor * 100).toFixed(1)}%` }}
-          title={`Poor: ${(poor * 100).toFixed(0)}%`}
-        />
-      )}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+          style={{ left: `${markerPercent}%` }}
+        >
+          <div className="w-3 h-3 rounded-full border-2 border-white bg-gray-700 shadow-sm" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -279,7 +327,13 @@ function MetricCard({
         </span>
         <span className="text-xs text-muted-foreground">p75</span>
       </div>
-      <DistributionBar histogram={metric.histogram} />
+      <DistributionBar
+        histogram={metric.histogram}
+        p75={metric.p75}
+        goodMax={config.goodMax}
+        poorMin={config.poorMin}
+        formatValue={config.format}
+      />
       <div className="flex justify-between text-[10px] text-muted-foreground">
         <span>
           Good: {((metric.histogram[0]?.density ?? 0) * 100).toFixed(0)}%
