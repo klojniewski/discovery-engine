@@ -12,10 +12,12 @@ import {
 export function SeoExtractionButton({
   projectId,
   done,
+  hasPages = true,
   initialProgress,
 }: {
   projectId: string;
   done: boolean;
+  hasPages?: boolean;
   initialProgress?: { completed: number; total: number } | null;
 }) {
   const [running, setRunning] = useState(!!initialProgress);
@@ -39,7 +41,7 @@ export function SeoExtractionButton({
     <Button
       variant={done ? "outline" : "default"}
       size="sm"
-      disabled={running}
+      disabled={running || !hasPages}
       onClick={async () => {
         setRunning(true);
         await runOnPageSeoExtraction(projectId);
@@ -57,13 +59,19 @@ export function SeoExtractionButton({
   );
 }
 
-export function ComputeScoresButton({ projectId }: { projectId: string }) {
+export function ComputeScoresButton({
+  projectId,
+  hasData = true,
+}: {
+  projectId: string;
+  hasData?: boolean;
+}) {
   const [running, setRunning] = useState(false);
 
   return (
     <Button
       size="sm"
-      disabled={running}
+      disabled={running || !hasData}
       onClick={async () => {
         setRunning(true);
         await computeSeoScores(projectId);

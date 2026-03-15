@@ -368,6 +368,14 @@ export async function getSeoStatus(projectId: string) {
 
   const settings = project.settings as Record<string, unknown> | null;
 
+  // Count total pages with HTML (available for extraction)
+  const [totalPagesCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(pages)
+    .where(
+      and(eq(pages.projectId, projectId), isNotNull(pages.rawHtml))
+    );
+
   // Count pages with on-page extraction
   const [extractionCount] = await db
     .select({ count: sql<number>`count(*)` })
@@ -416,6 +424,7 @@ export async function getSeoStatus(projectId: string) {
           bestLinks?: { rowCount: number; matchedCount: number; uploadedAt: string };
         }
       | undefined,
+    totalPagesWithHtml: Number(totalPagesCount.count),
     extractedCount: Number(extractionCount.count),
     psiScoredCount: Number(psiCount.count),
     seoScoredCount: Number(scoredCount.count),

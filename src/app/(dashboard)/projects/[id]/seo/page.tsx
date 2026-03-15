@@ -74,6 +74,7 @@ export default async function SeoPage({
           <SeoExtractionButton
             projectId={id}
             done={status.seoExtractionComplete}
+            hasPages={status.totalPagesWithHtml > 0}
             initialProgress={status.seoExtractionProgress}
           />
         </CardContent>
@@ -87,7 +88,10 @@ export default async function SeoPage({
 
       {/* Compute Scores */}
       <div className="flex items-center gap-4">
-        <ComputeScoresButton projectId={id} />
+        <ComputeScoresButton
+          projectId={id}
+          hasData={status.extractedCount > 0 || !!status.ahrefsUploads?.topPages}
+        />
         {status.seoScoredCount > 0 && (
           <p className="text-sm text-muted-foreground">
             {status.seoScoredCount} pages scored,{" "}
