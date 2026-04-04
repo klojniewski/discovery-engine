@@ -69,6 +69,74 @@ export function groupPagesByUrlPrefix(
   return { groups, ungrouped };
 }
 
+/**
+ * Extract index/listing pages from prefix groups into their own small groups.
+ * An index page is one whose URL path exactly matches the group prefix
+ * (e.g., /press-releases in a /press-releases/* group).
+ *
+ * Listing pages stay as groups (not ungrouped) so they go through the AI
+ * naming step directly and skip the singleton merge pass — which would
+ * otherwise merge all listing pages into one "hub" template.
+ */
+export function splitListingPages(
+  groups: PrefixGroup[],
+  ungrouped: PageInput[]
+): { groups: PrefixGroup[]; ungrouped: PageInput[] } {
+  const newGroups: PrefixGroup[] = [];
+
+  for (const group of groups) {
+    const indexPages: PageInput[] = [];
+    const detailPages: PageInput[] = [];
+
+    for (const page of group.pages) {
+      try {
+        const { pathname } = new URL(page.url);
+        const clean = pathname.replace(/\/+$/, "") || "/";
+        if (clean === group.prefix) {
+          indexPages.push(page);
+        } else {
+          detailPages.push(page);
+        }
+      } catch {
+        detailPages.push(page);
+      }
+    }
+
+    if (indexPages.length > 0 && detailPages.length > 0) {
+      // Listing pages become their own group with exact-match pattern
+      newGroups.push(rebuildGroup(
+        { ...group, pattern: group.prefix },
+        indexPages
+      ));
+      // Detail pages stay as the original group
+      newGroups.push(rebuildGroup(group, detailPages));
+    } else {
+      newGroups.push(group);
+    }
+  }
+
+  return { groups: newGroups, ungrouped };
+}
+
+function rebuildGroup(original: PrefixGroup, pages: PageInput[]): PrefixGroup {
+  const wordCounts = pages
+    .map((p) => p.wordCount ?? 0)
+    .filter((w) => w > 0);
+  const avgWordCount =
+    wordCounts.length > 0
+      ? Math.round(wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length)
+      : 0;
+
+  return {
+    prefix: original.prefix,
+    pattern: original.pattern,
+    pages,
+    sampleUrls: pages.slice(0, 5).map((p) => p.url),
+    sampleTitles: pages.slice(0, 5).map((p) => p.title ?? "N/A"),
+    avgWordCount,
+  };
+}
+
 function extractPrefix(url: string): string {
   try {
     const { pathname } = new URL(url);
@@ -123,22 +191,28 @@ async function nameGroupChunk(
 ): Promise<NamedGroup[]> {
   const groupDescriptions = groups
     .map(
-      (g, idx) =>
-        `Group ${idx + 1}: ${g.pattern} (${g.pages.length} pages)
+      (g, idx) => {
+        const isListing = !g.pattern.endsWith("/*");
+        return `Group ${idx + 1}: ${g.pattern} (${g.pages.length} pages)${isListing ? " [LISTING/INDEX PAGE]" : ""}
   Sample URLs: ${g.sampleUrls.join(", ")}
   Sample titles: ${g.sampleTitles.map((t) => `"${t}"`).join(", ")}
-  Avg word count: ${g.avgWordCount}`
+  Avg word count: ${g.avgWordCount}`;
+      }
     )
     .join("\n\n");
 
   const prompt = `Analyze these URL-prefix groups from a website and provide a name and description for each template type.
 
+NAMING RULES:
+- Groups marked [LISTING/INDEX PAGE] are section index pages. Their displayName MUST end with "Index" (e.g., "Blog Index", "Press Releases Index", "Events Index").
+- All other groups are detail/content pages. Use a content-specific noun — never end with "Page". Good: "Blog Post", "Press Release", "Customer Story", "Award", "Legal Document". Bad: "Event Page", "Solution Page".
+
 ${groupDescriptions}
 
 Return a JSON array with exactly ${groups.length} objects:
 - "prefix": the URL pattern (e.g., "/blog/*")
-- "name": a short kebab-case slug (e.g., "blog-post", "award", "event-page")
-- "displayName": human-readable name (e.g., "Blog Post", "Award", "Event Page")
+- "name": a short kebab-case slug (e.g., "blog-post", "award", "press-release")
+- "displayName": human-readable name following the naming rules above
 - "description": one sentence describing what these pages contain`;
 
   try {
@@ -165,14 +239,17 @@ Return a JSON array with exactly ${groups.length} objects:
     }));
   } catch (err) {
     console.error("Group naming AI call failed, using prefix fallback:", err);
-    return groups.map((g) => ({
-      prefix: g.prefix,
-      pattern: g.pattern,
-      name: prefixToSlug(g.prefix),
-      displayName: prefixToDisplayName(g.prefix),
-      description: "",
-      pages: g.pages,
-    }));
+    return groups.map((g) => {
+      const isListing = !g.pattern.endsWith("/*");
+      return {
+        prefix: g.prefix,
+        pattern: g.pattern,
+        name: prefixToSlug(g.prefix) + (isListing ? "-index" : ""),
+        displayName: prefixToDisplayName(g.prefix) + (isListing ? " Index" : ""),
+        description: "",
+        pages: g.pages,
+      };
+    });
   }
 }
 
@@ -329,15 +406,20 @@ async function classifySingletonBatch(
 
   const prompt = `Analyze each webpage and classify its template type.
 
-For each page, determine what type of page template it uses. Common types include homepage, landing page, blog post, case study, about page, contact page, legal page, etc. — but use whatever type best fits. Don't force pages into generic buckets.
+For each page, determine what type of page template it uses. These are standalone pages not part of a URL-prefix group.
+
+NAMING RULES:
+- The displayName MUST end with "Page" (e.g., "About Page", "Contact Page", "Pricing Page", "Demo Page").
+- Exception: "Homepage" stays as-is (no "Page" suffix needed).
+- Use descriptive names that distinguish pages: "Sign-Up Page" not "Landing Page", "FAQ Page" not "Content Page".
 
 Pages to analyze:
 ${pagesDescription}
 
 Return a JSON array with exactly ${pages.length} objects:
 - "url": the exact URL
-- "name": a short kebab-case slug for the template type (e.g., "blog-post", "pricing-page")
-- "displayName": human-readable name (e.g., "Blog Post", "Pricing Page")
+- "name": a short kebab-case slug for the template type (e.g., "about-page", "pricing-page")
+- "displayName": human-readable name ending with "Page" (e.g., "About Page", "Pricing Page")
 - "confidence": "high", "medium", or "low"
 - "reasoning": one sentence on why this template type`;
 

@@ -5,7 +5,7 @@ vi.mock("@/services/anthropic", () => ({
   callClaude: vi.fn(),
 }));
 
-import { groupPagesByUrlPrefix } from "@/services/classification";
+import { groupPagesByUrlPrefix, splitListingPages } from "@/services/classification";
 
 function makePage(url: string, title?: string, wordCount?: number) {
   return {
@@ -168,5 +168,161 @@ describe("groupPagesByUrlPrefix", () => {
 
     // Only counts 1000 and 2000 (skips 0)
     expect(groups[0].avgWordCount).toBe(1500);
+  });
+});
+
+describe("splitListingPages", () => {
+  it("splits index page into its own group with exact-match pattern", () => {
+    const pages = [
+      makePage("https://example.com/blog", "Blog", 1200),
+      makePage("https://example.com/blog/post-1", "Post 1", 800),
+      makePage("https://example.com/blog/post-2", "Post 2", 900),
+      makePage("https://example.com/blog/post-3", "Post 3", 700),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].pages).toHaveLength(4);
+
+    const result = splitListingPages(groups, ungrouped);
+
+    // Should produce 2 groups: listing + detail
+    expect(result.groups).toHaveLength(2);
+    const listing = result.groups.find((g) => g.pattern === "/blog");
+    const detail = result.groups.find((g) => g.pattern === "/blog/*");
+    expect(listing).toBeDefined();
+    expect(listing!.pages).toHaveLength(1);
+    expect(listing!.pages[0].url).toBe("https://example.com/blog");
+    expect(detail).toBeDefined();
+    expect(detail!.pages).toHaveLength(3);
+    // Ungrouped is unchanged
+    expect(result.ungrouped).toHaveLength(0);
+  });
+
+  it("does not split group with no index page", () => {
+    const pages = [
+      makePage("https://example.com/blog/post-1"),
+      makePage("https://example.com/blog/post-2"),
+      makePage("https://example.com/blog/post-3"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+    const result = splitListingPages(groups, ungrouped);
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].pages).toHaveLength(3);
+    expect(result.groups[0].pattern).toBe("/blog/*");
+  });
+
+  it("handles trailing slash on index page", () => {
+    const pages = [
+      makePage("https://example.com/events/", "Events", 2000),
+      makePage("https://example.com/events/conf-1", "Conf 1", 500),
+      makePage("https://example.com/events/conf-2", "Conf 2", 600),
+      makePage("https://example.com/events/conf-3", "Conf 3", 700),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+    const result = splitListingPages(groups, ungrouped);
+
+    expect(result.groups).toHaveLength(2);
+    const listing = result.groups.find((g) => g.pattern === "/events");
+    expect(listing).toBeDefined();
+    expect(listing!.pages[0].title).toBe("Events");
+  });
+
+  it("does not split group where all pages are at index depth", () => {
+    const groups = [
+      {
+        prefix: "/blog",
+        pattern: "/blog/*",
+        pages: [
+          makePage("https://example.com/blog", "Blog 1", 500),
+          makePage("https://example.com/blog", "Blog 2", 600),
+          makePage("https://example.com/blog", "Blog 3", 700),
+        ],
+        sampleUrls: [],
+        sampleTitles: [],
+        avgWordCount: 600,
+      },
+    ];
+
+    const result = splitListingPages(groups, []);
+
+    // All pages are index pages, no detail pages → no split
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].pages).toHaveLength(3);
+  });
+
+  it("preserves existing ungrouped pages", () => {
+    const pages = [
+      makePage("https://example.com/blog", "Blog", 1200),
+      makePage("https://example.com/blog/post-1", "Post 1", 800),
+      makePage("https://example.com/blog/post-2", "Post 2", 900),
+      makePage("https://example.com/blog/post-3", "Post 3", 700),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+    const existingUngrouped = [makePage("https://example.com/about", "About", 500)];
+
+    const result = splitListingPages(groups, existingUngrouped);
+
+    // Ungrouped stays the same — listing page is a group, not ungrouped
+    expect(result.ungrouped).toHaveLength(1);
+    expect(result.ungrouped[0].url).toBe("https://example.com/about");
+    // But groups now has 2 (listing + detail)
+    expect(result.groups).toHaveLength(2);
+  });
+
+  it("recalculates group stats after splitting", () => {
+    const pages = [
+      makePage("https://example.com/blog", "Blog Index", 1200),
+      makePage("https://example.com/blog/a", "Post A", 1000),
+      makePage("https://example.com/blog/b", "Post B", 2000),
+      makePage("https://example.com/blog/c", "Post C", 3000),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+    const result = splitListingPages(groups, ungrouped);
+
+    const detail = result.groups.find((g) => g.pattern === "/blog/*")!;
+    expect(detail.avgWordCount).toBe(2000); // (1000+2000+3000)/3
+    expect(detail.sampleUrls).toHaveLength(3);
+    expect(detail.sampleTitles).toEqual(["Post A", "Post B", "Post C"]);
+
+    const listing = result.groups.find((g) => g.pattern === "/blog")!;
+    expect(listing.avgWordCount).toBe(1200);
+    expect(listing.sampleUrls).toHaveLength(1);
+  });
+
+  it("splits multiple groups independently", () => {
+    const pages = [
+      makePage("https://example.com/blog", "Blog", 1200),
+      makePage("https://example.com/blog/post-1"),
+      makePage("https://example.com/blog/post-2"),
+      makePage("https://example.com/blog/post-3"),
+      makePage("https://example.com/events", "Events", 2000),
+      makePage("https://example.com/events/conf-1"),
+      makePage("https://example.com/events/conf-2"),
+      makePage("https://example.com/events/conf-3"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+    const result = splitListingPages(groups, ungrouped);
+
+    // 2 original groups → 4 groups (2 listings + 2 details)
+    expect(result.groups).toHaveLength(4);
+    const listingPatterns = result.groups
+      .filter((g) => !g.pattern.includes("*"))
+      .map((g) => g.pattern)
+      .sort();
+    expect(listingPatterns).toEqual(["/blog", "/events"]);
+    expect(result.ungrouped).toHaveLength(0);
+  });
+
+  it("returns empty results for empty input", () => {
+    const result = splitListingPages([], []);
+    expect(result.groups).toHaveLength(0);
+    expect(result.ungrouped).toHaveLength(0);
   });
 });

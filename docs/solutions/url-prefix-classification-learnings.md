@@ -40,15 +40,35 @@ The AI scoring prompt only returns `must_migrate`, `improve`, or `archive`. The 
 ### CrUX origin resolution
 Unrelated to classification but shipped on same branch: CrUX API needs the canonical origin after redirects (e.g., `dremio.com` → `www.dremio.com`). Added `resolveOrigin()` that does a HEAD request with redirect follow.
 
+## Listing/Detail Split (added 2026-04-04)
+
+After URL-prefix grouping, `splitListingPages()` extracts index pages (pathname === prefix) into their own small groups. This separates listing pages (e.g., `/press-releases`) from detail pages (e.g., `/press-releases/slug`).
+
+**Key decision: listing pages stay as groups, not singletons.** Initially we moved listing pages to the ungrouped pool (singleton classifier), but the singleton merge pass aggressively merged all listing pages together into one "Hub" template. Keeping them as small groups routes them through the AI naming step directly, skipping the merge pass.
+
+### Standardized Naming Convention
+
+AI prompts enforce consistent suffixes by template role:
+- **Listing templates** (exact pattern like `/blog`): displayName ends with "Index" (e.g., "Blog Index")
+- **Detail templates** (wildcard pattern like `/blog/*`): content-specific noun, never "Page" (e.g., "Blog Post", "Customer Story")
+- **Singleton templates** (no urlPattern): displayName ends with "Page" (e.g., "About Page", "Contact Page")
+
+This is enforced via prompt instructions in `nameGroupChunk()` and `classifySingletonBatch()`, plus fallback naming in the error path.
+
+### Template Card Placeholder
+
+Cards without screenshots now show a placeholder with the same `aspect-video` dimensions, ensuring consistent card height. The recapture button appears on hover for both — allowing first-time capture for templates that don't have screenshots yet.
+
 ## Files Changed
 
 | File | What |
 |---|---|
-| `src/services/classification.ts` | Full rewrite: `groupPagesByUrlPrefix`, `nameTemplateGroups`, `classifySingletonPages`, `mergeSingletonNames`, `scoreTiersBatch` |
-| `src/actions/analysis.ts` | New orchestration in `runClassifyAndScore` + `runTemplateClassificationOnly` |
+| `src/services/classification.ts` | Full rewrite: `groupPagesByUrlPrefix`, `splitListingPages`, `nameTemplateGroups`, `classifySingletonPages`, `mergeSingletonNames`, `scoreTiersBatch`. Naming convention enforced in AI prompts. |
+| `src/actions/analysis.ts` | New orchestration in `runClassifyAndScore` + `runTemplateClassificationOnly` + listing split step |
 | `src/components/analysis/classify-runner.tsx` | Updated pipeline steps, added re-classify buttons |
+| `src/components/analysis/template-clusters.tsx` | Shows `urlPattern` on cards, screenshot placeholder for all cards |
 | `src/db/schema.ts` | Added `urlPattern` column to templates |
 | `src/lib/cost-estimates.ts` | Updated cost formula for new pipeline |
 | `src/actions/seo.ts` | Added `resolveOrigin()` for CrUX API |
 | `drizzle/0008_absent_chat.sql` | Migration: `ALTER TABLE templates ADD COLUMN url_pattern` |
-| `src/services/__tests__/classification.test.ts` | 11 tests for `groupPagesByUrlPrefix` |
+| `src/services/__tests__/classification.test.ts` | 19 tests for `groupPagesByUrlPrefix` + `splitListingPages` |

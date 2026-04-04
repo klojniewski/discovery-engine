@@ -5,6 +5,7 @@ import { projects, pages, templates } from "@/db/schema";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import {
   groupPagesByUrlPrefix,
+  splitListingPages,
   nameTemplateGroups,
   classifySingletonPages,
   scoreTiersBatch,
@@ -83,7 +84,10 @@ async function runClassifyAndScore(projectId: string, options?: { classifyOnly?:
     total: projectPages.length,
   });
 
-  const { groups, ungrouped } = groupPagesByUrlPrefix(pageInputs);
+  const { groups: rawGroups, ungrouped: rawUngrouped } = groupPagesByUrlPrefix(pageInputs);
+
+  // ── Step 1b: Split listing/index pages from prefix groups ──
+  const { groups, ungrouped } = splitListingPages(rawGroups, rawUngrouped);
 
   // ── Step 2: AI template naming ──
   const namedGroups = await nameTemplateGroups(groups, projectId);
