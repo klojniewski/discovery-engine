@@ -1,10 +1,12 @@
 # Product Requirements Document (PRD)
 ## Replatform Discovery Engine
 
-**Version:** 1.3
-**Last Updated:** March 15, 2026
+**Version:** 1.4
+**Last Updated:** April 4, 2026
 **Document Owner:** Pagepro Product Team
 **Status:** MVP ~90% Complete
+
+> **v1.4 Update:** Template classification rewritten — URL-prefix grouping with listing/detail split, standardized naming convention (Index/noun/Page suffixes), 56 unit tests. See Classification section below.
 
 > **v1.3 Update:** SEO Baseline feature complete. Core pipeline fully functional. This document combines the original PRD with current implementation state. Sections below marked with *[BUILT]* reflect what's live; *[DEFERRED]* marks planned-but-not-yet-built features; *[CHANGED]* marks where implementation diverged from the original spec.
 
@@ -12,7 +14,7 @@
 
 ***
 
-## Current State (as of March 15, 2026)
+## Current State (as of April 4, 2026)
 
 ### What's Built
 
@@ -54,6 +56,10 @@ The tool answers three questions prospects care about most:
 - **Ahrefs CSV over API** — API costs $500+/month. CSV exports from $99 plan give the same data.
 - **No separate tables for SEO data** — All per-page SEO data stored as columns on `pages` table. Domain-level data in `projects.settings` JSONB.
 - **Screenshot only representatives** — 1 per template (~12-25 pages) not all 500+. 90% API cost reduction.
+- **URL-prefix template classification** *[CHANGED from v1.3]* — Original approach: per-page AI classification with 15 fixed types. New approach: group pages by first URL path segment (deterministic), then AI names each group dynamically. Eliminates inconsistent splitting (e.g., awards pages split across `blog_post` and `custom_page`).
+- **Listing/detail split** — Index pages (e.g., `/press-releases`) are separated from detail pages (e.g., `/press-releases/slug`) into distinct templates. Listing pages stay as small groups routed through AI naming (not singleton merge) to avoid all listings collapsing into one "Hub" template.
+- **Standardized naming convention** — Enforced via AI prompts: listing templates end with "Index" (e.g., "Blog Index"), detail templates use content-specific nouns (e.g., "Blog Post", "Customer Story"), singleton templates end with "Page" (e.g., "About Page").
+- **Content tier scoring separated from classification** — Template classification and content tier scoring are now independent passes. Duplicates (same content hash) auto-assigned `consolidate` tier without AI calls.
 
 ### What's Left
 
@@ -204,41 +210,36 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 
 ***
 
-### 2. AI-Powered Template Detection
+### 2. AI-Powered Template Detection *[CHANGED]*
 
-**Functional Requirements:**
-- Automatically cluster pages into template types
-- Identify common page templates:
-  - Homepage
-  - Landing page (campaign/promo)
-  - Blog article/news post
-  - Category/listing page
-  - Product/service page
-  - Case study/portfolio item
-  - About/team page
-  - Legal/policy page
-  - Contact/form page
-  - Documentation/resource page
-  - Custom/unique pages
+> **Note:** The original spec described CLIP embeddings, pgvector, K-means clustering, and 14 fixed template types. None of that was built. The actual implementation uses URL-prefix grouping + AI naming, described below.
 
-**AI Analysis Method:**
-- **Visual similarity:** Screenshot each page → use computer vision embeddings (CLIP model) → cluster by visual similarity
-- **Structural similarity:** Extract DOM structure → convert to tree representation → calculate tree edit distance → cluster
-- **Content similarity:** Extract text content → generate embeddings (OpenAI text-embedding-3-small) → semantic clustering
-- **Combined scoring:** Weighted combination of visual (40%), structural (40%), content (20%) similarity
+**Actual Implementation (URL-Prefix Classification):**
+
+1. **URL-prefix grouping** (deterministic, no AI) — Group pages by first path segment. Groups with 3+ pages qualify as templates. E.g., all `/blog/*` pages → one group.
+2. **Listing/detail split** (deterministic) — Extract index pages (pathname === prefix) into their own groups. E.g., `/press-releases` listing separated from `/press-releases/slug` detail pages.
+3. **AI template naming** (1 Haiku call per ≤50 groups) — AI names and describes each group dynamically. No fixed enum.
+4. **Singleton classification** (batches of 10) — Ungrouped pages classified individually with free-form types + merge pass for consistency.
+5. **Content tier scoring** (separate pass, batches of 10) — `must_migrate`, `improve`, `archive`. Duplicates auto-assigned `consolidate`.
+
+**Naming Convention (enforced via AI prompts):**
+- Listing templates: end with "Index" (e.g., "Blog Index", "Events Index")
+- Detail templates: content-specific noun, never "Page" (e.g., "Blog Post", "Customer Story", "Legal Document")
+- Singleton templates: end with "Page" (e.g., "About Page", "Contact Page")
 
 **Output:**
-- "Your site likely has **17 unique templates**, not 863 individual pages"
-- Visual grid showing template clusters with representative examples
+- Visual grid showing template clusters with representative screenshots
 - Confidence score per cluster (high/medium/low)
-- List of pages per template with variation notes
-- **Business impact:** "Reducing 863 pages to 17 templates means 80% faster development and 70% lower ongoing maintenance cost"
+- URL pattern displayed on each template card
+- Click page count badge to see all pages in a template
+- Inline rename for template display names
+- Re-classify templates without re-scoring content tiers
 
-**Technical Requirements:**
-- Use Claude 3.5 Sonnet for LLM-powered analysis
-- K-means or DBSCAN clustering on embedding vectors
-- Store embeddings in pgvector for fast similarity search
-- Processing time: <45 seconds per 100 pages
+**Technical Details:**
+- Classification service: `src/services/classification.ts`
+- Orchestration: `src/actions/analysis.ts`
+- 56 unit tests covering grouping, splitting, and edge cases
+- Cost: ~$0.01 for group naming + ~$0.10-0.50 for singletons + ~$2-5 for tier scoring (1000 pages)
 
 ***
 
@@ -335,7 +336,7 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
   - **Word count:** <300 words = thin, 300-1000 = medium, >1000 = substantial
   - **Content freshness:** Last modified date (if available from sitemap or meta tags)
   - **Navigation prominence:** Homepage linked = high, 3+ clicks deep = low
-  - **Duplicate detection:** Exact or near-duplicate content (use embeddings)
+  - **Duplicate detection:** Exact or near-duplicate content *[CHANGED: uses content hash, not embeddings]*
   - **Broken links:** Internal 404s, external dead links
   - **Metadata quality:** Missing titles/descriptions, keyword stuffing, duplicate meta descriptions
   - **SEO signals:** Presence of schema markup, alt text quality, heading hierarchy
@@ -349,11 +350,10 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
   - **Tier 4 (Archive/Delete):** 10-20% - outdated, low value, broken, not worth migrating
 - **Business impact:** "Migrating only Tier 1+2 (65% of pages) saves 6 weeks and $45k vs migrating everything"
 
-**Technical Requirements:**
-- Content similarity via embeddings (cosine similarity >0.95 = duplicate)
-- Last-modified from HTTP headers or sitemap.xml
-- Link checker (parallel HEAD requests for all links)
-- Broken link detection and reporting
+**Technical Requirements:** *[CHANGED]*
+- Duplicate detection via content hash (MD5 of page markdown), not embeddings
+- Content tier scoring via Claude Haiku in batches of 10
+- Duplicates auto-assigned `consolidate` tier without AI calls
 
 ***
 
@@ -619,20 +619,14 @@ Turn weeks of manual website auditing into hours of AI-powered analysis. Generat
 - Server Actions for mutations
 - Vercel deployment (Pro plan)
 - PostgreSQL (Vercel Postgres or Supabase)
-- pgvector extension for embeddings
 - Vercel Blob for HTML snapshots and screenshots
 
-**Crawler Service (Separate Service):**
-- Node.js + Playwright (headless Chrome)
-- Deployed on Railway or Fly.io (needs long-running process support)
-- Queue system: BullMQ + Upstash Redis
-- Horizontal scaling support (spin up multiple workers)
+**Crawler Service:** *[CHANGED — uses Firecrawl API, not Playwright]*
 
-**AI Services:**
-- **Primary:** Claude 3.5 Sonnet (Anthropic API) - text analysis, classification, recommendations
-- **Embeddings:** OpenAI text-embedding-3-small (1536 dimensions) - semantic similarity
-- **Vision:** Claude 3.5 Sonnet with vision - component identification from screenshots
-- **Fallback:** OpenAI GPT-4o for redundancy if Anthropic has issues
+**AI Services:** *[CHANGED]*
+- **Classification:** Claude Haiku — URL-prefix group naming, singleton classification, content tier scoring
+- **Vision:** Claude Sonnet — section detection from screenshots
+- No embeddings, no pgvector, no OpenAI — all AI through Anthropic API
 
 **Data Storage:**
 
@@ -680,54 +674,25 @@ CREATE TABLE pages (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Template clusters
+-- Template clusters [CHANGED — added url_pattern, free-form names instead of fixed enum]
 CREATE TABLE templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL, -- 'blog_post', 'product_page', etc.
-  display_name VARCHAR(255), -- 'Blog Article', 'Product Page', etc.
+  name VARCHAR(255) NOT NULL, -- AI-generated slug: 'blog-post', 'press-release', etc.
+  display_name VARCHAR(255), -- AI-generated: 'Blog Post', 'Press Release', etc.
   confidence VARCHAR(50), -- 'high', 'medium', 'low'
   page_count INTEGER DEFAULT 0,
   representative_page_id UUID REFERENCES pages(id),
   description TEXT,
   complexity VARCHAR(50), -- 'simple', 'moderate', 'complex'
+  url_pattern VARCHAR(255), -- '/blog/*', '/press-releases', or NULL for singletons
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Components/sections found
-CREATE TABLE components (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-  type VARCHAR(100) NOT NULL, -- 'hero', 'cta', 'form', etc.
-  style_description TEXT,
-  frequency INTEGER DEFAULT 0, -- how many pages use this
-  example_page_ids UUID[], -- array of page IDs
-  screenshot_url TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Links between pages
-CREATE TABLE links (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-  source_page_id UUID REFERENCES pages(id) ON DELETE CASCADE,
-  target_url TEXT NOT NULL,
-  is_internal BOOLEAN NOT NULL,
-  is_broken BOOLEAN DEFAULT FALSE,
-  link_text TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Embeddings for semantic search
-CREATE TABLE embeddings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id UUID REFERENCES pages(id) ON DELETE CASCADE,
-  vector vector(1536), -- pgvector, 1536 dimensions for OpenAI embeddings
-  embedding_type VARCHAR(50), -- 'content', 'structure', etc.
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX ON embeddings USING ivfflat (vector vector_cosine_ops);
+-- [CHANGED] components and links tables were never built.
+-- Sections stored in pages.detected_sections JSONB.
+-- Section types defined in section_types table (64 types with SVG wireframes).
+-- Embeddings were never built — classification uses URL-prefix grouping instead.
 
 -- Audit activity tracking
 CREATE TABLE report_analytics (
@@ -741,97 +706,61 @@ CREATE TABLE report_analytics (
 );
 ```
 
-**Job Queue Flow:**
+**Pipeline (Actual Implementation):** *[CHANGED]*
 ```
-1. User submits URL + payment → Create project record (status: 'pending')
-2. Enqueue "crawl_website" job → Crawler service picks up
-3. Crawler discovers pages → Store in DB, enqueue "analyze_page" jobs for each
-4. Page analysis workers:
-   - Generate embeddings (OpenAI API)
-   - Extract metadata
-   - Take screenshot
-   - Store HTML snapshot
-5. When all pages analyzed → Enqueue "classify_templates" job
-6. Template classification:
-   - Cluster pages by similarity (K-means on embeddings)
-   - Assign template types using Claude
-   - Update pages with template_id
-7. Enqueue "detect_components" job
-8. Component detection:
-   - Claude Vision analyzes screenshots
-   - Identifies reusable sections
-   - Stores in components table
-9. Enqueue "content_scoring" job
-10. Content scoring:
-    - Calculate quality scores
-    - Detect duplicates (embedding similarity)
-    - Check for broken links
-    - Assign content tiers
-11. Enqueue "generate_report" job
-12. Report generation:
-    - Compile all data
-    - Generate business case calculations
-    - Create visualizations
-    - Render report HTML
-13. Update project status to 'reviewing'
-14. Pagepro team reviews → clicks "Publish"
-15. Generate shareable link → Send email to client
-16. Project status → 'published'
+1. User creates project → Enter URL + settings → status: 'created'
+2. Crawl via Firecrawl API → Pages stored in DB → status: 'crawled'
+3. Phase A — Classify & Score (no screenshots needed):
+   a. URL-prefix grouping (instant, deterministic)
+   b. Listing/detail split (instant, deterministic)
+   c. AI template naming (1 Haiku call per ≤50 groups)
+   d. Singleton classification (batches of 10)
+   e. Singleton name merge (1 Haiku call)
+   f. Duplicate detection (content hash, instant)
+   g. Content tier scoring (batches of 10, non-duplicates only)
+   h. Save results → status: 'classified'
+4. Phase B — Screenshots & Section Detection:
+   a. Capture screenshots for representative pages only
+   b. Claude Sonnet vision detects sections per screenshot
+   c. status: 'reviewing'
+5. SEO enrichment (optional, user-triggered):
+   - On-page extraction, Ahrefs CSV import, PSI, CrUX
+6. Report generation from stored data
 ```
 
-**Infrastructure:**
-- **Vercel:** Frontend hosting, serverless functions
-- **Railway/Fly.io:** Crawler service (needs long-running processes)
-- **Upstash Redis:** Job queue (BullMQ)
-- **Vercel Postgres or Supabase:** Database with pgvector
-- **Vercel Blob or S3:** File storage (HTML snapshots, screenshots, PDFs)
-- **PostHog:** Product analytics
-- **Sentry:** Error monitoring
-- **Resend:** Transactional emails
-- **Stripe:** Payment processing
+**Infrastructure (Actual):** *[CHANGED]*
+- **Vercel:** Frontend hosting, serverless functions, deployment
+- **Supabase:** PostgreSQL database + Auth + Blob storage
+- **Inngest:** Serverless durable functions (background jobs)
+- **Firecrawl API:** Managed crawling
+- **Anthropic API:** Claude Haiku (classification) + Claude Sonnet (vision)
+- **Sentry:** Error monitoring *[DEFERRED]*
 
 ***
 
-## AI/LLM Implementation Details
+## AI/LLM Implementation Details *[CHANGED]*
 
-### Claude 3.5 Sonnet Prompts
+> **Note:** The original spec described per-page classification with 14 fixed template types and OpenAI embeddings. The actual implementation uses URL-prefix grouping with free-form AI naming. Prompts below reflect what's actually built.
 
-**1. Template Classification Prompt:**
-```
-You are analyzing a website for migration planning. Based on the following page data, classify this page into one of these template types:
+### Claude Haiku Prompts
 
-Template Types:
-- homepage
-- landing_page (promotional/campaign page)
-- blog_post
-- blog_listing
-- product_page
-- product_listing
-- case_study
-- about_page
-- team_page
-- contact_page
-- legal_page (privacy, terms, etc.)
-- documentation_page
-- resource_page (whitepaper, guide, etc.)
-- custom_page (unique, doesn't fit other types)
+**1. Template Group Naming Prompt (1 call per ≤50 groups):**
 
-Page Data:
-URL: {url}
-Title: {title}
-H1: {h1_text}
-Word Count: {word_count}
-First 500 characters: {content_preview}
-Navigation Depth: {depth}
-Meta Description: {meta_description}
+Groups are formed by URL-prefix grouping (deterministic). Listing pages are marked `[LISTING/INDEX PAGE]`. The AI names and describes each group.
 
-Respond in JSON format only, no additional text:
-{
-  "template_type": "blog_post",
-  "confidence": "high",
-  "reasoning": "This page has blog post structure with article content, author byline, publish date, and commenting section."
-}
-```
+Naming rules enforced:
+- Listing groups → displayName must end with "Index"
+- Detail groups → content-specific noun, never end with "Page"
+
+**2. Singleton Classification Prompt (batches of 10):**
+
+Ungrouped pages classified individually. Naming rule enforced: displayName must end with "Page" (exception: "Homepage").
+
+**3. Content Tier Scoring Prompt (batches of 10):**
+
+Assigns `must_migrate`, `improve`, or `archive` per page. `consolidate` assigned programmatically to duplicates (same content hash), never by AI.
+
+See `src/services/classification.ts` for full prompt text.
 
 **2. Component Detection Prompt (with vision):**
 ```
@@ -927,27 +856,9 @@ Focus on this specific site's characteristics.
 Format as markdown with clear headings and bullet points.
 ```
 
-### Embedding Strategy
+### Embedding Strategy *[NOT BUILT]*
 
-**When to generate embeddings:**
-- Full page content (for duplicate detection and similarity clustering)
-- Page titles + descriptions (for semantic grouping)
-- Component descriptions (for grouping similar UI patterns)
-
-**Embedding model:** OpenAI text-embedding-3-small
-- 1536 dimensions
-- Fast inference (~50ms per embedding)
-- Cost-effective ($0.02 per 1M tokens)
-
-**Similarity thresholds:**
-- **>0.95** = Duplicate content (flag for consolidation)
-- **0.85-0.95** = Very similar (likely same template)
-- **0.70-0.85** = Related content (same category/topic)
-- **<0.70** = Different content
-
-**Storage:** pgvector column in PostgreSQL
-- Use IVFFlat index for fast similarity search
-- Query: `ORDER BY vector <=> query_vector LIMIT 10`
+> **Note:** Embeddings were never implemented. Template classification uses URL-prefix grouping (deterministic) instead of embedding similarity. Duplicate detection uses content hashing (MD5 of page markdown), not embedding cosine similarity. This section is preserved for reference only if embeddings are revisited in a future version.
 
 ***
 
@@ -1198,7 +1109,7 @@ Format as markdown with clear headings and bullet points.
 - [x] Public report sharing with optional password protection
 - [x] API cost tracking per project per step
 - [x] Supabase Auth for team login
-- [x] 37 unit tests passing
+- [x] 56 unit tests passing (URL grouping, listing split, SEO scoring, Ahrefs parsing)
 
 ### Near-term (Weeks 1-2)
 
@@ -1587,28 +1498,26 @@ CREATE INDEX idx_links_project_id ON links(project_id);
 CREATE INDEX idx_links_source_page_id ON links(source_page_id);
 CREATE INDEX idx_links_is_broken ON links(is_broken);
 
--- Fast embedding similarity search (pgvector)
-CREATE INDEX idx_embeddings_vector ON embeddings USING ivfflat (vector vector_cosine_ops);
+-- [REMOVED] embeddings table and pgvector indexes were never built
 ```
 
-### Cost Estimates
+### Cost Estimates *[CHANGED]*
 
 **Per Audit (1,000 pages):**
-- OpenAI embeddings: 1,000 pages × 500 tokens avg × $0.02/1M tokens = $0.01
-- Claude API calls: 1,000 pages × 1 classification call × $0.003 = $3.00
-- Claude Vision: 100 screenshots × 1 component detection call × $0.04 = $4.00
-- Vercel Blob storage: 1,000 HTML files × 50KB × $0.15/GB = $0.75
-- Screenshot storage: 1,000 screenshots × 200KB × $0.15/GB = $3.00
-- Total AI + Storage: **~$11/audit**
-- Buffer for retries/errors: **$15/audit**
-- Target COGS: **<$25/audit** (includes infrastructure overhead)
+- Group naming: ~$0.01 (1 Haiku call, ~2K input + ~1K output tokens)
+- Singleton classification: ~$0.10-0.50 (~20% of pages in batches of 10)
+- Content tier scoring: ~$2-5 (all pages in batches of 10)
+- Section detection: ~$5-10 (Claude Sonnet vision on ~20 representative pages)
+- Supabase storage: screenshots + HTML < $1
+- Total AI + Storage: **~$8-16/audit**
+- Target COGS: **<$20/audit**
 
 **Monthly Infrastructure (20 audits/month):**
 - Vercel Pro: $20/month
-- Upstash Redis: $10/month
-- Railway (crawler): $20/month
-- Vercel Postgres or Supabase: $25/month
-- Total: **~$75/month base** + variable costs ($300 for 20 audits)
+- Supabase Pro: $25/month
+- Firecrawl: usage-based (~$5-10/audit)
+- Inngest: free tier sufficient
+- Total: **~$45/month base** + variable costs (~$300-500 for 20 audits)
 
 **Gross Margin:**
 - Revenue per audit: $2,500
@@ -1627,20 +1536,19 @@ CREATE INDEX idx_embeddings_vector ON embeddings USING ivfflat (vector vector_co
 1. ✅ **Stakeholder sign-off:** Review this PRD with Pagepro leadership
 2. 📋 **Resource allocation:** Assign 1-2 senior developers for 16 weeks (full-time or 70%+ capacity)
 3. 🔑 **API key setup:**
-   - Anthropic API account (Claude 3.5 Sonnet)
-   - OpenAI API account (embeddings)
-   - Stripe account for payments
+   - Anthropic API account (Claude Haiku + Sonnet)
+   - Firecrawl API account
+   - Stripe account for payments *[DEFERRED]*
 4. 🏗️ **Infrastructure setup:**
    - Provision Vercel Pro account
-   - Set up Vercel Postgres or Supabase
-   - Railway or Fly.io account for crawler service
-   - Upstash Redis for job queue
+   - Set up Supabase (database + auth + storage)
+   - Inngest account for background jobs
 5. 👥 **Beta client recruitment:** Reach out to 5-7 prospects, confirm participation
 6. 📅 **Sprint planning:** Week 1 kickoff meeting, define first 2-week sprint
 
 **Dependencies:**
 - Anthropic API key + credits
-- OpenAI API key + credits  
+- Firecrawl API key  
 - Stripe Connect setup
 - Domain for report hosting (e.g., audit.pagepro.com)
 - GitHub repo + project board
