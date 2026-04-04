@@ -1,0 +1,172 @@
+import { describe, it, expect, vi } from "vitest";
+
+// Mock the anthropic module to avoid DB/API initialization
+vi.mock("@/services/anthropic", () => ({
+  callClaude: vi.fn(),
+}));
+
+import { groupPagesByUrlPrefix } from "@/services/classification";
+
+function makePage(url: string, title?: string, wordCount?: number) {
+  return {
+    url,
+    title: title ?? null,
+    metaDescription: null,
+    wordCount: wordCount ?? null,
+    contentPreview: null,
+  };
+}
+
+describe("groupPagesByUrlPrefix", () => {
+  it("groups pages by first path segment with 3+ pages", () => {
+    const pages = [
+      makePage("https://example.com/blog/post-1"),
+      makePage("https://example.com/blog/post-2"),
+      makePage("https://example.com/blog/post-3"),
+      makePage("https://example.com/about"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].prefix).toBe("/blog");
+    expect(groups[0].pattern).toBe("/blog/*");
+    expect(groups[0].pages).toHaveLength(3);
+    expect(ungrouped).toHaveLength(1);
+    expect(ungrouped[0].url).toBe("https://example.com/about");
+  });
+
+  it("requires 3+ pages for a group", () => {
+    const pages = [
+      makePage("https://example.com/blog/post-1"),
+      makePage("https://example.com/blog/post-2"),
+      makePage("https://example.com/about"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(0);
+    expect(ungrouped).toHaveLength(3);
+  });
+
+  it("homepage is always ungrouped", () => {
+    const pages = [
+      makePage("https://example.com/"),
+      makePage("https://example.com/blog/post-1"),
+      makePage("https://example.com/blog/post-2"),
+      makePage("https://example.com/blog/post-3"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(1);
+    expect(ungrouped).toHaveLength(1);
+    expect(ungrouped[0].url).toBe("https://example.com/");
+  });
+
+  it("root-level pages are singletons", () => {
+    const pages = [
+      makePage("https://example.com/about"),
+      makePage("https://example.com/pricing"),
+      makePage("https://example.com/careers"),
+    ];
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+
+    // Each root-level page has its own prefix (/about, /pricing, /careers)
+    // None have 3+ pages, so all are ungrouped
+    expect(groups).toHaveLength(0);
+    expect(ungrouped).toHaveLength(3);
+  });
+
+  it("handles locale prefixes as separate groups", () => {
+    const pages = [
+      makePage("https://example.com/en/blog/post-1"),
+      makePage("https://example.com/en/blog/post-2"),
+      makePage("https://example.com/en/blog/post-3"),
+      makePage("https://example.com/de/blog/post-1"),
+      makePage("https://example.com/de/blog/post-2"),
+      makePage("https://example.com/de/blog/post-3"),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(2);
+    const prefixes = groups.map((g) => g.prefix).sort();
+    expect(prefixes).toEqual(["/de", "/en"]);
+  });
+
+  it("returns empty results for empty input", () => {
+    const { groups, ungrouped } = groupPagesByUrlPrefix([]);
+    expect(groups).toHaveLength(0);
+    expect(ungrouped).toHaveLength(0);
+  });
+
+  it("all pages in one prefix form one group", () => {
+    const pages = Array.from({ length: 100 }, (_, i) =>
+      makePage(`https://example.com/blog/post-${i}`)
+    );
+
+    const { groups, ungrouped } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].pages).toHaveLength(100);
+    expect(ungrouped).toHaveLength(0);
+  });
+
+  it("computes sample URLs (max 5) and avg word count", () => {
+    const pages = [
+      makePage("https://example.com/blog/a", "Title A", 1000),
+      makePage("https://example.com/blog/b", "Title B", 2000),
+      makePage("https://example.com/blog/c", "Title C", 3000),
+      makePage("https://example.com/blog/d", "Title D", 4000),
+      makePage("https://example.com/blog/e", "Title E", 5000),
+      makePage("https://example.com/blog/f", "Title F", 6000),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+
+    expect(groups[0].sampleUrls).toHaveLength(5);
+    expect(groups[0].sampleTitles).toHaveLength(5);
+    expect(groups[0].avgWordCount).toBe(3500); // (1000+2000+3000+4000+5000+6000)/6
+  });
+
+  it("handles deeply nested URLs using first segment only", () => {
+    const pages = [
+      makePage("https://example.com/docs/v2/api/endpoints"),
+      makePage("https://example.com/docs/v2/guides/getting-started"),
+      makePage("https://example.com/docs/v1/legacy"),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].prefix).toBe("/docs");
+  });
+
+  it("handles trailing slashes", () => {
+    const pages = [
+      makePage("https://example.com/blog/post-1/"),
+      makePage("https://example.com/blog/post-2/"),
+      makePage("https://example.com/blog/post-3/"),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].prefix).toBe("/blog");
+  });
+
+  it("excludes pages with zero word count from avg calculation", () => {
+    const pages = [
+      makePage("https://example.com/blog/a", "A", 1000),
+      makePage("https://example.com/blog/b", "B", 0),
+      makePage("https://example.com/blog/c", "C", 2000),
+    ];
+
+    const { groups } = groupPagesByUrlPrefix(pages);
+
+    // Only counts 1000 and 2000 (skips 0)
+    expect(groups[0].avgWordCount).toBe(1500);
+  });
+});

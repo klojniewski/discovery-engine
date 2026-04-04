@@ -1,0 +1,1 @@
+ALTER TABLE "templates" ADD COLUMN "url_pattern" varchar(255);

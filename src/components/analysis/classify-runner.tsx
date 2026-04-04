@@ -3,11 +3,12 @@
 import { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Play, RotateCcw, CheckCircle2, Circle, AlertCircle } from "lucide-react";
-import { runClassificationAndScoring, getAnalysisStatus } from "@/actions/analysis";
+import { runClassificationAndScoring, runTemplateClassificationOnly, getAnalysisStatus } from "@/actions/analysis";
 import { estimateClassificationAndScoringCost, formatCost } from "@/lib/cost-estimates";
 
 const STEPS = [
-  { key: "classification", label: "Classifying & Scoring Pages" },
+  { key: "classifying", label: "Classifying Pages" },
+  { key: "scoring", label: "Scoring Content Tiers" },
   { key: "saving", label: "Saving Results" },
   { key: "classified", label: "Classification Complete" },
 ];
@@ -35,8 +36,9 @@ export function ClassifyRunner({
     total: number;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [runningAction, setRunningAction] = useState<"all" | "templates" | null>(null);
 
-  const isAnalyzing = status === "analyzing" && (currentStep === "classification" || currentStep === "saving");
+  const isAnalyzing = status === "analyzing" && (currentStep === "classifying" || currentStep === "scoring" || currentStep === "saving");
   const canRun = status === "crawled" || status === "analysis_failed";
   const isComplete = currentStep === "classified" || currentStep === "completed";
 
@@ -50,7 +52,7 @@ export function ClassifyRunner({
         setCurrentStep(result.step);
         setProgress(result.progress);
         if (result.error) setError(result.error);
-        if (result.status === "classified") {
+        if (result.status === "classified" || result.status === "reviewing") {
           window.location.reload();
         }
       } catch (err) {
@@ -63,8 +65,9 @@ export function ClassifyRunner({
 
   function handleRun() {
     setError(null);
+    setRunningAction("all");
     setStatus("analyzing");
-    setCurrentStep("classification");
+    setCurrentStep("classifying");
     startTransition(async () => {
       try {
         await runClassificationAndScoring(projectId);
@@ -80,13 +83,36 @@ export function ClassifyRunner({
 
   const costEstimate = formatCost(estimateClassificationAndScoringCost(pageCount));
 
-  // Compact mode: just show re-run button
+  function handleRunTemplatesOnly() {
+    setError(null);
+    setRunningAction("templates");
+    setStatus("analyzing");
+    setCurrentStep("classifying");
+    startTransition(async () => {
+      try {
+        await runTemplateClassificationOnly(projectId);
+        window.location.reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("analysis_failed");
+        setRunningAction(null);
+      }
+    });
+  }
+
+  // Compact mode: show re-run buttons
   if (compact) {
     return (
-      <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
-        <RotateCcw className="mr-1 h-3 w-3" />
-        Re-run Classification
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isPending}>
+          {runningAction === "templates" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+          Re-classify Templates
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
+          {runningAction === "all" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+          Re-run All (Templates + Tiers)
+        </Button>
+      </div>
     );
   }
 

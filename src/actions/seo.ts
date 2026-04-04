@@ -582,7 +582,8 @@ export async function fetchCruxData(projectId: string) {
     .limit(1);
   if (!project) throw new Error("Project not found");
 
-  const origin = project.websiteUrl;
+  // Follow redirects to find the canonical origin (e.g. dremio.com → www.dremio.com)
+  const origin = await resolveOrigin(project.websiteUrl);
   const [originResult, historyResult] = await Promise.all([
     fetchCruxOrigin(origin),
     fetchCruxHistory(origin),
@@ -687,6 +688,25 @@ export async function runPsiAnalysis(projectId: string) {
   });
 
   return { completed, total };
+}
+
+/**
+ * Follow redirects on a URL and return the final origin (scheme + host).
+ * Handles common cases like dremio.com → www.dremio.com.
+ */
+async function resolveOrigin(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(10000),
+    });
+    const finalUrl = new URL(res.url);
+    return `${finalUrl.protocol}//${finalUrl.host}`;
+  } catch {
+    // If the HEAD request fails, fall back to the original URL
+    return url.replace(/\/$/, "");
+  }
 }
 
 /** Helper to merge settings without overwriting unrelated keys */
