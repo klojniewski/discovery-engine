@@ -4,15 +4,32 @@ const PRICING = {
 };
 
 /**
- * Combined classification + scoring in a single API call per batch.
- * ~500 input tokens per page (URL, title, description, 500 chars of content)
- * ~150 output tokens per page (template type + tier + two reasoning strings)
- * Batches of 10, duplicates handled locally (no API call).
+ * New pipeline cost estimate:
+ * - Group naming: ~1 Haiku call with ~2000 input + ~1000 output (fixed, negligible)
+ * - Singleton classification: ~20% of pages in batches of 10
+ * - Tier scoring: all pages in batches of 10
+ *
+ * ~500 input tokens per page, ~150 output tokens per page.
  */
 export function estimateClassificationAndScoringCost(pageCount: number): number {
-  const inputTokens = pageCount * 500;
-  const outputTokens = pageCount * 150;
-  return (inputTokens * PRICING.haiku.input + outputTokens * PRICING.haiku.output) / 1_000_000;
+  // Group naming: fixed cost (~$0.01)
+  const groupNamingCost =
+    (2000 * PRICING.haiku.input + 1000 * PRICING.haiku.output) / 1_000_000;
+
+  // Singleton classification: ~20% of pages
+  const singletonCount = Math.ceil(pageCount * 0.2);
+  const singletonCost =
+    (singletonCount * 500 * PRICING.haiku.input +
+      singletonCount * 150 * PRICING.haiku.output) /
+    1_000_000;
+
+  // Tier scoring: all pages
+  const tierCost =
+    (pageCount * 500 * PRICING.haiku.input +
+      pageCount * 150 * PRICING.haiku.output) /
+    1_000_000;
+
+  return groupNamingCost + singletonCost + tierCost;
 }
 
 export function estimateSectionDetectionCost(pageCount: number): number {

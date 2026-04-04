@@ -58,6 +58,7 @@ export const templates = pgTable("templates", {
   representativePageId: uuid("representative_page_id"),
   description: text("description"),
   complexity: varchar("complexity", { length: 50 }),
+  urlPattern: varchar("url_pattern", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

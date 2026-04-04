@@ -57,6 +57,13 @@
       "when": 1773565956048,
       "tag": "0007_marvelous_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775124340562,
+      "tag": "0008_absent_chat",
+      "breakpoints": true
     }
   ]
 }

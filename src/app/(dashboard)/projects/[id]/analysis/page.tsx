@@ -35,7 +35,17 @@ export default async function AnalysisPage({
   } | null;
 
   const projectPages = await db
-    .select()
+    .select({
+      id: pages.id,
+      url: pages.url,
+      title: pages.title,
+      wordCount: pages.wordCount,
+      contentTier: pages.contentTier,
+      templateId: pages.templateId,
+      isDuplicate: pages.isDuplicate,
+      screenshotUrl: pages.screenshotUrl,
+      detectedSections: pages.detectedSections,
+    })
     .from(pages)
     .where(and(eq(pages.projectId, id), eq(pages.excluded, false)));
 
@@ -106,7 +116,7 @@ export default async function AnalysisPage({
   const status = project.status;
   const showClassifyPhase =
     status === "crawled" || status === "analysis_failed" ||
-    (status === "analyzing" && (settings?.analysisStep === "classification" || settings?.analysisStep === "saving"));
+    (status === "analyzing" && (settings?.analysisStep === "classifying" || settings?.analysisStep === "scoring" || settings?.analysisStep === "saving"));
   const showReviewPhase = status === "classified" || (hasTemplates && !hasSections && status !== "analyzing");
   const showResultsPhase = status === "reviewing" || hasSections;
 
@@ -133,9 +143,18 @@ export default async function AnalysisPage({
       {showReviewPhase && (
         <div className="space-y-6">
           <section>
-            <h3 className="text-lg font-semibold mb-3">
-              Templates ({projectTemplates.length})
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">
+                Templates ({projectTemplates.length})
+              </h3>
+              <ClassifyRunner
+                projectId={id}
+                initialStatus={status}
+                initialStep="completed"
+                pageCount={pageCount}
+                compact
+              />
+            </div>
             <TemplateClusters templates={enrichedTemplates} />
           </section>
 
@@ -160,9 +179,18 @@ export default async function AnalysisPage({
         <>
           {hasTemplates && (
             <section>
-              <h3 className="text-lg font-semibold mb-3">
-                Templates ({projectTemplates.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">
+                  Templates ({projectTemplates.length})
+                </h3>
+                <ClassifyRunner
+                  projectId={id}
+                  initialStatus={status}
+                  initialStep="completed"
+                  pageCount={pageCount}
+                  compact
+                />
+              </div>
               <TemplateClusters templates={enrichedTemplates} />
             </section>
           )}
@@ -190,16 +218,6 @@ export default async function AnalysisPage({
               pagesWithSections={pagesWithSections}
             />
           </section>
-
-          <div className="flex gap-2">
-            <ClassifyRunner
-              projectId={id}
-              initialStatus={status}
-              initialStep="completed"
-              pageCount={pageCount}
-              compact
-            />
-          </div>
         </>
       )}
     </div>

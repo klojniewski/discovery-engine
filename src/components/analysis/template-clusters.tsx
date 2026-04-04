@@ -9,8 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Pencil, Check, X } from "lucide-react";
-import { renameTemplate, getTemplatePages } from "@/actions/analysis";
+import { Pencil, Check, X, RefreshCw, Loader2 } from "lucide-react";
+import { renameTemplate, getTemplatePages, recaptureTemplateScreenshot } from "@/actions/analysis";
 
 interface Template {
   id: string;
@@ -36,6 +36,8 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
   const [modalPages, setModalPages] = useState<TemplatePage[] | null>(null);
   const [modalTemplate, setModalTemplate] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [recapturing, setRecapturing] = useState<string | null>(null);
+  const [screenshots, setScreenshots] = useState<Record<string, string>>({});
 
   if (templates.length === 0) {
     return (
@@ -64,6 +66,18 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
     setEditing(null);
   }
 
+  async function handleRecapture(templateId: string) {
+    setRecapturing(templateId);
+    try {
+      const newUrl = await recaptureTemplateScreenshot(templateId);
+      setScreenshots((prev) => ({ ...prev, [templateId]: newUrl }));
+    } catch (err) {
+      console.error("Recapture failed:", err);
+    } finally {
+      setRecapturing(null);
+    }
+  }
+
   function showPages(template: Template) {
     setModalTemplate(names[template.id] || template.displayName || template.name);
     startTransition(async () => {
@@ -86,13 +100,23 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                 key={template.id}
                 className="rounded-lg border p-4 space-y-3"
               >
-                {template.representativeScreenshot && (
-                  <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                {(screenshots[template.id] || template.representativeScreenshot) && (
+                  <div className="aspect-video rounded-md overflow-hidden bg-muted relative group">
                     <img
-                      src={template.representativeScreenshot}
+                      src={screenshots[template.id] || template.representativeScreenshot!}
                       alt={displayName}
                       className="w-full h-full object-cover object-top"
                     />
+                    <button
+                      onClick={() => handleRecapture(template.id)}
+                      disabled={recapturing === template.id}
+                      className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background disabled:opacity-100"
+                      title="Recapture screenshot"
+                    >
+                      {recapturing === template.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <RefreshCw className="h-3.5 w-3.5" />}
+                    </button>
                   </div>
                 )}
                 <div>
