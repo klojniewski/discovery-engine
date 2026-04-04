@@ -69,6 +69,68 @@ export function groupPagesByUrlPrefix(
   return { groups, ungrouped };
 }
 
+/**
+ * Extract index/listing pages from prefix groups into the ungrouped pool.
+ * An index page is one whose URL path exactly matches the group prefix
+ * (e.g., /press-releases in a /press-releases/* group).
+ */
+export function splitListingPages(
+  groups: PrefixGroup[],
+  ungrouped: PageInput[]
+): { groups: PrefixGroup[]; ungrouped: PageInput[] } {
+  const newGroups: PrefixGroup[] = [];
+  const newUngrouped = [...ungrouped];
+
+  for (const group of groups) {
+    const indexPages: PageInput[] = [];
+    const detailPages: PageInput[] = [];
+
+    for (const page of group.pages) {
+      try {
+        const { pathname } = new URL(page.url);
+        const clean = pathname.replace(/\/+$/, "") || "/";
+        if (clean === group.prefix) {
+          indexPages.push(page);
+        } else {
+          detailPages.push(page);
+        }
+      } catch {
+        detailPages.push(page);
+      }
+    }
+
+    if (indexPages.length > 0 && detailPages.length > 0) {
+      // Index pages become singletons (AI classifies them individually)
+      newUngrouped.push(...indexPages);
+      // Rebuild group with detail pages only
+      newGroups.push(rebuildGroup(group, detailPages));
+    } else {
+      newGroups.push(group);
+    }
+  }
+
+  return { groups: newGroups, ungrouped: newUngrouped };
+}
+
+function rebuildGroup(original: PrefixGroup, pages: PageInput[]): PrefixGroup {
+  const wordCounts = pages
+    .map((p) => p.wordCount ?? 0)
+    .filter((w) => w > 0);
+  const avgWordCount =
+    wordCounts.length > 0
+      ? Math.round(wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length)
+      : 0;
+
+  return {
+    prefix: original.prefix,
+    pattern: original.pattern,
+    pages,
+    sampleUrls: pages.slice(0, 5).map((p) => p.url),
+    sampleTitles: pages.slice(0, 5).map((p) => p.title ?? "N/A"),
+    avgWordCount,
+  };
+}
+
 function extractPrefix(url: string): string {
   try {
     const { pathname } = new URL(url);

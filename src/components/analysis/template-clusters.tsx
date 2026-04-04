@@ -20,6 +20,7 @@ interface Template {
   pageCount: number | null;
   description: string | null;
   complexity: string | null;
+  urlPattern: string | null;
   representativeScreenshot?: string | null;
 }
 
@@ -167,6 +168,11 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                       </Badge>
                     </button>
                   </div>
+                  {template.urlPattern && (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {template.urlPattern}
+                    </span>
+                  )}
                   {template.description && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {template.description}
