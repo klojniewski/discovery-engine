@@ -91,7 +91,13 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {templates
-          .sort((a, b) => (b.pageCount ?? 0) - (a.pageCount ?? 0))
+          .sort((a, b) => {
+            const aName = (names[a.id] || a.displayName || a.name).toLowerCase();
+            const bName = (names[b.id] || b.displayName || b.name).toLowerCase();
+            if (aName === "homepage") return -1;
+            if (bName === "homepage") return 1;
+            return aName.localeCompare(bName);
+          })
           .map((template) => {
             const displayName =
               names[template.id] || template.displayName || template.name;
