@@ -190,7 +190,8 @@ export default async function PerformancePage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-medium">URL</th>
+                    <th className="text-left p-3 font-medium">Page</th>
+                    <th className="text-left p-3 font-medium">Template</th>
                     <th className="text-center p-3 font-medium">Mobile</th>
                     <th className="text-center p-3 font-medium">Desktop</th>
                     <th className="p-3 w-8" />
@@ -203,17 +204,23 @@ export default async function PerformancePage({
                       className="border-b last:border-0 hover:bg-muted/30"
                     >
                       <td className="p-3 max-w-[400px]">
-                        <span
-                          className="font-mono text-xs truncate block"
+                        <span className="truncate block text-sm font-medium">
+                          {page.title || urlPath(page.url)}
+                        </span>
+                        <a
+                          href={page.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-muted-foreground hover:text-primary truncate block"
                           title={page.url}
                         >
                           {urlPath(page.url)}
+                        </a>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-xs text-muted-foreground">
+                          {page.templateDisplayName || "\u2014"}
                         </span>
-                        {page.title && (
-                          <span className="truncate block text-xs text-muted-foreground">
-                            {page.title}
-                          </span>
-                        )}
                       </td>
                       <td className="p-3 text-center">
                         <span

@@ -551,8 +551,10 @@ export async function getPsiPages(projectId: string) {
       title: pages.title,
       psiScoreMobile: pages.psiScoreMobile,
       psiScoreDesktop: pages.psiScoreDesktop,
+      templateDisplayName: templates.displayName,
     })
     .from(pages)
+    .leftJoin(templates, eq(pages.templateId, templates.id))
     .where(
       and(eq(pages.projectId, projectId), isNotNull(pages.psiScoreMobile))
     )
