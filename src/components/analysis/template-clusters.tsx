@@ -191,18 +191,6 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                     </p>
                   )}
                   <div className="flex gap-2 mt-2">
-                    {template.confidence && (
-                      <Badge
-                        variant={
-                          template.confidence === "high"
-                            ? "default"
-                            : "secondary"
-                        }
-                        className="text-xs"
-                      >
-                        {template.confidence}
-                      </Badge>
-                    )}
                     {template.complexity && (
                       <Badge variant="outline" className="text-xs">
                         {template.complexity}

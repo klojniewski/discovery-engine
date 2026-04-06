@@ -7,11 +7,6 @@ interface TemplateInventoryProps {
   notes?: string | null;
 }
 
-const CONFIDENCE_COLORS = {
-  high: "bg-green-100 text-green-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  low: "bg-red-100 text-red-800",
-};
 
 export function TemplateInventory({
   templates,
@@ -41,21 +36,8 @@ export function TemplateInventory({
               </div>
             )}
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between">
-                <span className="truncate">
-                  {template.displayName ?? template.name}
-                </span>
-                {template.confidence && (
-                  <Badge
-                    className={`text-xs border-0 shrink-0 ml-2 ${
-                      CONFIDENCE_COLORS[
-                        template.confidence as keyof typeof CONFIDENCE_COLORS
-                      ] ?? ""
-                    }`}
-                  >
-                    {template.confidence}
-                  </Badge>
-                )}
+              <CardTitle className="truncate">
+                {template.displayName ?? template.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
