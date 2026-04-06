@@ -9,8 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Pencil, Check, X, RefreshCw, Loader2 } from "lucide-react";
-import { renameTemplate, getTemplatePages, recaptureTemplateScreenshot } from "@/actions/analysis";
+import { Pencil, Check, X, RefreshCw, Loader2, Star } from "lucide-react";
+import { renameTemplate, getTemplatePages, recaptureTemplateScreenshot, setRepresentativePage } from "@/actions/analysis";
 
 interface Template {
   id: string;
@@ -21,6 +21,7 @@ interface Template {
   description: string | null;
   complexity: string | null;
   urlPattern: string | null;
+  representativePageId: string | null;
   representativeScreenshot?: string | null;
 }
 
@@ -36,6 +37,12 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
   const [editValue, setEditValue] = useState("");
   const [modalPages, setModalPages] = useState<TemplatePage[] | null>(null);
   const [modalTemplate, setModalTemplate] = useState<string | null>(null);
+  const [modalTemplateId, setModalTemplateId] = useState<string | null>(null);
+  const [representatives, setRepresentatives] = useState<Record<string, string | null>>(() => {
+    const map: Record<string, string | null> = {};
+    for (const t of templates) map[t.id] = t.representativePageId;
+    return map;
+  });
   const [isPending, startTransition] = useTransition();
   const [recapturing, setRecapturing] = useState<string | null>(null);
   const [screenshots, setScreenshots] = useState<Record<string, string>>({});
@@ -81,9 +88,17 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
 
   function showPages(template: Template) {
     setModalTemplate(names[template.id] || template.displayName || template.name);
+    setModalTemplateId(template.id);
     startTransition(async () => {
       const pages = await getTemplatePages(template.id);
       setModalPages(pages);
+    });
+  }
+
+  function handleSetRepresentative(templateId: string, pageId: string) {
+    setRepresentatives((prev) => ({ ...prev, [templateId]: pageId }));
+    startTransition(async () => {
+      await setRepresentativePage(templateId, pageId);
     });
   }
 
@@ -214,36 +229,53 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
           </DialogHeader>
           {modalPages && (
             <div className="space-y-1">
-              {modalPages.map((page) => (
-                <a
-                  key={page.id}
-                  href={page.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-md p-2 hover:bg-muted text-sm group"
-                >
-                  <div className="font-mono text-xs text-primary underline underline-offset-2 decoration-primary/40 group-hover:decoration-primary truncate" title={page.url}>
-                    {(() => {
-                      try {
-                        const { hostname, pathname, search } = new URL(page.url);
-                        const full = hostname + pathname + search;
-                        return full.length > 60
-                          ? full.slice(0, 57) + "..."
-                          : full;
-                      } catch {
-                        return page.url.length > 60
-                          ? page.url.slice(0, 57) + "..."
-                          : page.url;
-                      }
-                    })()}
-                  </div>
-                  {page.title && (
-                    <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {page.title}
+              {modalPages.map((page) => {
+                const isRep = modalTemplateId
+                  ? representatives[modalTemplateId] === page.id
+                  : false;
+                return (
+                  <div
+                    key={page.id}
+                    className={`flex items-start gap-2 rounded-md p-2 hover:bg-muted text-sm group ${isRep ? "bg-muted/50 ring-1 ring-primary/20" : ""}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      {page.title && (
+                        <div className="text-sm font-medium truncate">
+                          {page.title}
+                        </div>
+                      )}
+                      <a
+                        href={page.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs text-muted-foreground hover:text-primary truncate block"
+                        title={page.url}
+                      >
+                        {(() => {
+                          try {
+                            const { hostname, pathname, search } = new URL(page.url);
+                            const full = hostname + pathname + search;
+                            return full.length > 60
+                              ? full.slice(0, 57) + "..."
+                              : full;
+                          } catch {
+                            return page.url.length > 60
+                              ? page.url.slice(0, 57) + "..."
+                              : page.url;
+                          }
+                        })()}
+                      </a>
                     </div>
-                  )}
-                </a>
-              ))}
+                    <button
+                      onClick={() => modalTemplateId && handleSetRepresentative(modalTemplateId, page.id)}
+                      className={`shrink-0 p-1 rounded transition-colors ${isRep ? "text-primary" : "text-muted-foreground/30 opacity-0 group-hover:opacity-100 hover:text-primary"}`}
+                      title={isRep ? "Current representative" : "Set as representative page"}
+                    >
+                      <Star className={`h-3.5 w-3.5 ${isRep ? "fill-current" : ""}`} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </DialogContent>

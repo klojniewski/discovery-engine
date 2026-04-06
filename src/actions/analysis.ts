@@ -761,6 +761,13 @@ export async function renameTemplate(templateId: string, displayName: string) {
     .where(eq(templates.id, templateId));
 }
 
+export async function setRepresentativePage(templateId: string, pageId: string) {
+  await db
+    .update(templates)
+    .set({ representativePageId: pageId })
+    .where(eq(templates.id, templateId));
+}
+
 export async function updatePageTier(
   pageId: string,
   tier: "must_migrate" | "improve" | "consolidate" | "archive"
