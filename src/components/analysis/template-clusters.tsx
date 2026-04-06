@@ -254,9 +254,10 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                         {(() => {
                           try {
                             const { pathname, search } = new URL(page.url);
-                            return pathname + search;
+                            const path = pathname + search;
+                            return path.length > 50 ? path.slice(0, 50) + "..." : path;
                           } catch {
-                            return page.url;
+                            return page.url.length > 50 ? page.url.slice(0, 50) + "..." : page.url;
                           }
                         })()}
                       </a>
