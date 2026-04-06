@@ -1,12 +1,20 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Info } from "lucide-react";
+import { updatePageTier } from "@/actions/analysis";
 
 interface SeoPageRow {
   id: string;
@@ -64,7 +72,19 @@ function HeaderWithTooltip({
   );
 }
 
+const TIER_OPTIONS = ["must_migrate", "improve", "consolidate", "archive"] as const;
+
 export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
+  const [tiers, setTiers] = useState<Record<string, string>>({});
+  const [, startTransition] = useTransition();
+
+  function handleTierChange(pageId: string, tier: string) {
+    setTiers((prev) => ({ ...prev, [pageId]: tier }));
+    startTransition(async () => {
+      await updatePageTier(pageId, tier as "must_migrate" | "improve" | "consolidate" | "archive");
+    });
+  }
+
   return (
     <div className="rounded-lg border overflow-hidden">
       <table className="w-full text-sm">
@@ -93,8 +113,9 @@ export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
         </thead>
         <tbody>
           {pages.map((page) => {
-            const tierConfig = page.contentTier
-              ? TIER_CONFIG[page.contentTier]
+            const currentTier = tiers[page.id] ?? page.contentTier;
+            const tierConfig = currentTier
+              ? TIER_CONFIG[currentTier]
               : null;
             return (
               <tr
@@ -151,9 +172,31 @@ export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
                 </td>
                 <td className="p-3">
                   {tierConfig ? (
-                    <Badge className={`${tierConfig.color} text-xs border-0`}>
-                      {tierConfig.label}
-                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="cursor-pointer">
+                          <Badge className={`${tierConfig.color} text-xs border-0 hover:opacity-80`}>
+                            {tierConfig.label}
+                          </Badge>
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {TIER_OPTIONS.map((tier) => {
+                          const cfg = TIER_CONFIG[tier];
+                          return (
+                            <DropdownMenuItem
+                              key={tier}
+                              onClick={() => handleTierChange(page.id, tier)}
+                              className="gap-2"
+                            >
+                              <Badge className={`${cfg.color} text-xs border-0`}>
+                                {cfg.label}
+                              </Badge>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   ) : (
                     <span className="text-muted-foreground">{"\u2014"}</span>
                   )}
