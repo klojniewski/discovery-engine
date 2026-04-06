@@ -240,8 +240,8 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                   >
                     <div className="flex-1 min-w-0">
                       {page.title && (
-                        <div className="text-sm font-medium truncate">
-                          {page.title}
+                        <div className="text-sm font-medium truncate" title={page.title}>
+                          {page.title.length > 50 ? page.title.slice(0, 50) + "..." : page.title}
                         </div>
                       )}
                       <a
