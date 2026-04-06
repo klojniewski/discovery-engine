@@ -8,12 +8,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Info } from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Info, Loader2 } from "lucide-react";
 import { updatePageTier } from "@/actions/analysis";
 
 interface SeoPageRow {
@@ -72,16 +73,22 @@ function HeaderWithTooltip({
   );
 }
 
-const TIER_OPTIONS = ["must_migrate", "improve", "consolidate", "archive"] as const;
+type TierKey = "must_migrate" | "improve" | "consolidate" | "archive";
 
 export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
   const [tiers, setTiers] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  function handleTierChange(pageId: string, tier: string) {
+  function handleTierChange(pageId: string, tier: TierKey) {
+    setSaving(pageId);
     setTiers((prev) => ({ ...prev, [pageId]: tier }));
     startTransition(async () => {
-      await updatePageTier(pageId, tier as "must_migrate" | "improve" | "consolidate" | "archive");
+      try {
+        await updatePageTier(pageId, tier);
+      } finally {
+        setSaving(null);
+      }
     });
   }
 
@@ -171,35 +178,38 @@ export function SeoTable({ pages }: { pages: SeoPageRow[] }) {
                   </span>
                 </td>
                 <td className="p-3">
-                  {tierConfig ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="cursor-pointer">
-                          <Badge className={`${tierConfig.color} text-xs border-0 hover:opacity-80`}>
-                            {tierConfig.label}
-                          </Badge>
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {TIER_OPTIONS.map((tier) => {
-                          const cfg = TIER_CONFIG[tier];
-                          return (
-                            <DropdownMenuItem
-                              key={tier}
-                              onClick={() => handleTierChange(page.id, tier)}
-                              className="gap-2"
-                            >
-                              <Badge className={`${cfg.color} text-xs border-0`}>
-                                {cfg.label}
-                              </Badge>
-                            </DropdownMenuItem>
-                          );
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <span className="text-muted-foreground">{"\u2014"}</span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <Select
+                      value={currentTier ?? ""}
+                      onValueChange={(val) =>
+                        handleTierChange(page.id, val as TierKey)
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-[140px] text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0">
+                        <SelectValue>
+                          {tierConfig ? (
+                            <Badge className={`${tierConfig.color} text-xs border-0`}>
+                              {tierConfig.label}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">{"\u2014"}</span>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TIER_CONFIG).map(([key, cfg]) => (
+                          <SelectItem key={key} value={key} className="text-xs">
+                            <Badge className={`${cfg.color} text-xs border-0`}>
+                              {cfg.label}
+                            </Badge>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {saving === page.id && (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
                 </td>
               </tr>
             );
