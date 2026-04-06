@@ -59,16 +59,37 @@ This is enforced via prompt instructions in `nameGroupChunk()` and `classifySing
 
 Cards without screenshots now show a placeholder with the same `aspect-video` dimensions, ensuring consistent card height. The recapture button appears on hover for both — allowing first-time capture for templates that don't have screenshots yet.
 
+### Listing pages always `must_migrate` (added 2026-04-06)
+
+Section index pages (`/blog`, `/press-releases`, `/events`) are structurally important for navigation and SEO. After tier scoring, pages in listing templates (exact-match `urlPattern`, no `/*`) are upgraded to `must_migrate` regardless of AI assignment. Filtered variants (`/blog/category/partners`) and pagination pages stay in detail groups and get scored normally.
+
+### Re-run buttons distributed by section (added 2026-04-06)
+
+Three re-run actions placed next to their relevant section headings:
+- **Re-run All** — next to "Analysis" heading (re-classifies templates + re-scores tiers)
+- **Re-classify** — next to "Templates" heading (templates only, preserves tiers)
+- **Re-score** — next to "Content Tiers" heading (tiers only, preserves templates)
+
+### Representative page picker (added 2026-04-06)
+
+Click the page count badge on a template card to open the pages modal. Click the star icon on any page to set it as the representative. Current representative shows a filled star. Used for screenshots and PSI analysis.
+
+### Inline tier editing on SEO table (added 2026-04-06)
+
+Tier badges in the SEO "All Scored Pages" table are clickable Select dropdowns matching the same UX as the Analysis content tiers table.
+
 ## Files Changed
 
 | File | What |
 |---|---|
 | `src/services/classification.ts` | Full rewrite: `groupPagesByUrlPrefix`, `splitListingPages`, `nameTemplateGroups`, `classifySingletonPages`, `mergeSingletonNames`, `scoreTiersBatch`. Naming convention enforced in AI prompts. |
-| `src/actions/analysis.ts` | New orchestration in `runClassifyAndScore` + `runTemplateClassificationOnly` + listing split step |
-| `src/components/analysis/classify-runner.tsx` | Updated pipeline steps, added re-classify buttons |
-| `src/components/analysis/template-clusters.tsx` | Shows `urlPattern` on cards, screenshot placeholder for all cards |
+| `src/actions/analysis.ts` | Orchestration: `runClassifyAndScore`, `runTemplateClassificationOnly`, `runTierScoringOnly`, `setRepresentativePage`. Listing pages forced to `must_migrate`. |
+| `src/components/analysis/classify-runner.tsx` | Pipeline steps, mode-based re-run buttons (all/templates/tiers) |
+| `src/components/analysis/template-clusters.tsx` | `urlPattern` on cards, screenshot placeholder, representative page picker in modal, alphabetical sort with Homepage first |
+| `src/components/seo/seo-table.tsx` | Inline tier editing via Select dropdown |
+| `src/app/(dashboard)/projects/[id]/performance/page.tsx` | Title-first layout, template name column in PSI table |
 | `src/db/schema.ts` | Added `urlPattern` column to templates |
 | `src/lib/cost-estimates.ts` | Updated cost formula for new pipeline |
-| `src/actions/seo.ts` | Added `resolveOrigin()` for CrUX API |
+| `src/actions/seo.ts` | Added `resolveOrigin()` for CrUX, template join in `getPsiPages` |
 | `drizzle/0008_absent_chat.sql` | Migration: `ALTER TABLE templates ADD COLUMN url_pattern` |
 | `src/services/__tests__/classification.test.ts` | 19 tests for `groupPagesByUrlPrefix` + `splitListingPages` |
