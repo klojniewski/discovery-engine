@@ -253,15 +253,10 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                       >
                         {(() => {
                           try {
-                            const { hostname, pathname, search } = new URL(page.url);
-                            const full = hostname + pathname + search;
-                            return full.length > 60
-                              ? full.slice(0, 57) + "..."
-                              : full;
+                            const { pathname, search } = new URL(page.url);
+                            return pathname + search;
                           } catch {
-                            return page.url.length > 60
-                              ? page.url.slice(0, 57) + "..."
-                              : page.url;
+                            return page.url;
                           }
                         })()}
                       </a>
