@@ -255,9 +255,9 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                           try {
                             const { pathname, search } = new URL(page.url);
                             const path = pathname + search;
-                            return path.length > 50 ? path.slice(0, 50) + "..." : path;
+                            return path.length > 40 ? path.slice(0, 40) + "..." : path;
                           } catch {
-                            return page.url.length > 50 ? page.url.slice(0, 50) + "..." : page.url;
+                            return page.url.length > 40 ? page.url.slice(0, 40) + "..." : page.url;
                           }
                         })()}
                       </a>
