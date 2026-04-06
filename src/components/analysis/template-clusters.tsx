@@ -241,7 +241,7 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                     <div className="flex-1 min-w-0">
                       {page.title && (
                         <div className="text-sm font-medium truncate" title={page.title}>
-                          {page.title.length > 50 ? page.title.slice(0, 50) + "..." : page.title}
+                          {page.title.length > 60 ? page.title.slice(0, 60) + "..." : page.title}
                         </div>
                       )}
                       <a
@@ -255,9 +255,9 @@ export function TemplateClusters({ templates }: { templates: Template[] }) {
                           try {
                             const { pathname, search } = new URL(page.url);
                             const path = pathname + search;
-                            return path.length > 40 ? path.slice(0, 40) + "..." : path;
+                            return path.length > 50 ? path.slice(0, 50) + "..." : path;
                           } catch {
-                            return page.url.length > 40 ? page.url.slice(0, 40) + "..." : page.url;
+                            return page.url.length > 50 ? page.url.slice(0, 50) + "..." : page.url;
                           }
                         })()}
                       </a>
