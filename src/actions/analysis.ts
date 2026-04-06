@@ -413,6 +413,152 @@ export async function runTemplateClassificationOnly(projectId: string) {
 }
 
 /**
+ * Re-score content tiers only — no template re-classification.
+ * Preserves existing template assignments, re-runs tier scoring on all pages.
+ */
+export async function runTierScoringOnly(projectId: string) {
+  try {
+    const [currentProject] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    await db
+      .update(projects)
+      .set({
+        status: "analyzing",
+        settings: {
+          ...(currentProject.settings as Record<string, unknown>),
+          analysisStep: "scoring",
+          analysisError: undefined,
+          analysisProgress: undefined,
+        },
+      })
+      .where(eq(projects.id, projectId));
+
+    const projectPages = await db
+      .select()
+      .from(pages)
+      .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+
+    const pageInputs = projectPages.map((p) => ({
+      url: p.url,
+      title: p.title,
+      metaDescription: p.metaDescription,
+      wordCount: p.wordCount,
+      contentPreview: p.rawMarkdown?.slice(0, 500) ?? null,
+    }));
+
+    // Duplicate detection
+    const duplicateUrls = new Set<string>();
+    const hashCounts = new Map<string, number>();
+    for (const p of projectPages) {
+      if (p.contentHash) {
+        hashCounts.set(p.contentHash, (hashCounts.get(p.contentHash) ?? 0) + 1);
+      }
+    }
+    for (const p of projectPages) {
+      if (p.contentHash && (hashCounts.get(p.contentHash) ?? 0) > 1) {
+        duplicateUrls.add(p.url);
+      }
+    }
+
+    // Score tiers
+    await updateStep(projectId, "scoring", { completed: 0, total: projectPages.length });
+
+    const nonDuplicateInputs = pageInputs.filter((p) => !duplicateUrls.has(p.url));
+    const tierResults = await scoreTiersBatch(
+      nonDuplicateInputs,
+      projectId,
+      (completed, total) => updateStep(projectId, "scoring", { completed, total })
+    );
+
+    const tierByUrl = new Map(tierResults.map((r) => [r.url, { tier: r.tier }]));
+
+    // Listing pages always must_migrate
+    const projectTemplates = await db
+      .select()
+      .from(templates)
+      .where(eq(templates.projectId, projectId));
+
+    const listingTemplateIds = new Set(
+      projectTemplates
+        .filter((t) => t.urlPattern && !t.urlPattern.endsWith("/*"))
+        .map((t) => t.id)
+    );
+    for (const p of projectPages) {
+      if (p.templateId && listingTemplateIds.has(p.templateId)) {
+        tierByUrl.set(p.url, { tier: "must_migrate" });
+      }
+    }
+
+    // Update pages with new tiers
+    await updateStep(projectId, "saving");
+    for (let i = 0; i < projectPages.length; i += 50) {
+      const batch = projectPages.slice(i, i + 50);
+      await Promise.all(
+        batch.map((page) => {
+          const isDuplicate = duplicateUrls.has(page.url);
+          const tier: ContentTier = isDuplicate
+            ? "consolidate"
+            : tierByUrl.get(page.url)?.tier ?? "improve";
+
+          return db
+            .update(pages)
+            .set({ contentTier: tier, isDuplicate })
+            .where(eq(pages.id, page.id));
+        })
+      );
+    }
+
+    // Restore previous status
+    const [updated] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    const previousStatus = (currentProject.settings as Record<string, unknown>)?.analysisStep === "completed"
+      ? "reviewing"
+      : "classified";
+
+    await db
+      .update(projects)
+      .set({
+        status: previousStatus,
+        settings: {
+          ...(updated.settings as Record<string, unknown>),
+          analysisStep: previousStatus === "reviewing" ? "completed" : "classified",
+          analysisProgress: undefined,
+        },
+      })
+      .where(eq(projects.id, projectId));
+
+    return { scored: projectPages.length };
+  } catch (err) {
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    await db
+      .update(projects)
+      .set({
+        status: "analysis_failed",
+        settings: {
+          ...(project.settings as Record<string, unknown>),
+          analysisError: err instanceof Error ? err.message : String(err),
+        },
+      })
+      .where(eq(projects.id, projectId));
+
+    throw err;
+  }
+}
+
+/**
  * Phase A: Classification & Scoring — runs on crawl data only, no screenshots needed.
  * Sets status to "classified" when complete.
  */

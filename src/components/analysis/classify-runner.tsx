@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Play, RotateCcw, CheckCircle2, Circle, AlertCircle } from "lucide-react";
-import { runClassificationAndScoring, runTemplateClassificationOnly, getAnalysisStatus } from "@/actions/analysis";
+import { runClassificationAndScoring, runTemplateClassificationOnly, runTierScoringOnly, getAnalysisStatus } from "@/actions/analysis";
 import { estimateClassificationAndScoringCost, formatCost } from "@/lib/cost-estimates";
 
 const STEPS = [
@@ -36,7 +36,7 @@ export function ClassifyRunner({
     total: number;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [runningAction, setRunningAction] = useState<"all" | "templates" | null>(null);
+  const [runningAction, setRunningAction] = useState<"all" | "templates" | "tiers" | null>(null);
 
   const isAnalyzing = status === "analyzing" && (currentStep === "classifying" || currentStep === "scoring" || currentStep === "saving");
   const canRun = status === "crawled" || status === "analysis_failed";
@@ -100,6 +100,23 @@ export function ClassifyRunner({
     });
   }
 
+  function handleRunTiersOnly() {
+    setError(null);
+    setRunningAction("tiers");
+    setStatus("analyzing");
+    setCurrentStep("scoring");
+    startTransition(async () => {
+      try {
+        await runTierScoringOnly(projectId);
+        window.location.reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("analysis_failed");
+        setRunningAction(null);
+      }
+    });
+  }
+
   // Compact mode: show re-run buttons
   if (compact) {
     return (
@@ -108,9 +125,13 @@ export function ClassifyRunner({
           {runningAction === "templates" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
           Re-classify Templates
         </Button>
+        <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isPending}>
+          {runningAction === "tiers" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+          Re-score Tiers
+        </Button>
         <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
           {runningAction === "all" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-run All (Templates + Tiers)
+          Re-run All
         </Button>
       </div>
     );
