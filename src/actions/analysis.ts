@@ -131,6 +131,18 @@ async function runClassifyAndScore(projectId: string, options?: { classifyOnly?:
     );
 
     tierByUrl = new Map(tierResults.map((r) => [r.url, { tier: r.tier }]));
+
+    // Listing/index pages (e.g., /blog, /press-releases) are structurally
+    // important — always must_migrate regardless of AI tier assignment.
+    // Excludes filtered/paginated variants which stay in detail groups.
+    const listingUrls = new Set(
+      namedGroups
+        .filter((g) => !g.pattern.endsWith("/*"))
+        .flatMap((g) => g.pages.map((p) => p.url))
+    );
+    for (const url of listingUrls) {
+      tierByUrl.set(url, { tier: "must_migrate" });
+    }
   }
 
   // ── Step 6: Save results ──
