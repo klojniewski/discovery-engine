@@ -122,11 +122,23 @@ export default async function AnalysisPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-bold">Analysis</h2>
-        <p className="text-muted-foreground text-sm">
-          AI-powered analysis of <strong>{project.websiteUrl}</strong>
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Analysis</h2>
+          <p className="text-muted-foreground text-sm">
+            AI-powered analysis of <strong>{project.websiteUrl}</strong>
+          </p>
+        </div>
+        {(hasTemplates || hasScoring) && (
+          <ClassifyRunner
+            projectId={id}
+            initialStatus={status}
+            initialStep={settings?.analysisStep ?? null}
+            pageCount={pageCount}
+            compact
+            mode="all"
+          />
+        )}
       </div>
 
       {/* Phase A: Classify & Score */}
@@ -153,6 +165,7 @@ export default async function AnalysisPage({
                 initialStep="completed"
                 pageCount={pageCount}
                 compact
+                mode="templates"
               />
             </div>
             <TemplateClusters templates={enrichedTemplates} />
@@ -160,7 +173,17 @@ export default async function AnalysisPage({
 
           {hasScoring && (
             <section>
-              <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">Content Tiers</h3>
+                <ClassifyRunner
+                  projectId={id}
+                  initialStatus={status}
+                  initialStep="completed"
+                  pageCount={pageCount}
+                  compact
+                  mode="tiers"
+                />
+              </div>
               <ContentTiers pages={projectPages} />
             </section>
           )}
@@ -189,6 +212,7 @@ export default async function AnalysisPage({
                   initialStep="completed"
                   pageCount={pageCount}
                   compact
+                  mode="templates"
                 />
               </div>
               <TemplateClusters templates={enrichedTemplates} />
@@ -197,7 +221,17 @@ export default async function AnalysisPage({
 
           {hasScoring && (
             <section>
-              <h3 className="text-lg font-semibold mb-3">Content Tiers</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">Content Tiers</h3>
+                <ClassifyRunner
+                  projectId={id}
+                  initialStatus={status}
+                  initialStep="completed"
+                  pageCount={pageCount}
+                  compact
+                  mode="tiers"
+                />
+              </div>
               <ContentTiers pages={projectPages} />
             </section>
           )}

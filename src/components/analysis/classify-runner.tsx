@@ -19,6 +19,7 @@ interface ClassifyRunnerProps {
   initialStep: string | null;
   pageCount: number;
   compact?: boolean;
+  mode?: "all" | "templates" | "tiers";
 }
 
 export function ClassifyRunner({
@@ -27,6 +28,7 @@ export function ClassifyRunner({
   initialStep,
   pageCount,
   compact,
+  mode,
 }: ClassifyRunnerProps) {
   const [status, setStatus] = useState(initialStatus);
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -117,23 +119,30 @@ export function ClassifyRunner({
     });
   }
 
-  // Compact mode: show re-run buttons
+  // Compact mode: show specific re-run button based on mode
   if (compact) {
-    return (
-      <div className="flex gap-2">
+    if (mode === "templates") {
+      return (
         <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isPending}>
           {runningAction === "templates" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-classify Templates
+          Re-classify
         </Button>
+      );
+    }
+    if (mode === "tiers") {
+      return (
         <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isPending}>
           {runningAction === "tiers" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-score Tiers
+          Re-score
         </Button>
-        <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
-          {runningAction === "all" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-run All
-        </Button>
-      </div>
+      );
+    }
+    // mode === "all" or default
+    return (
+      <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
+        {runningAction === "all" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+        Re-run All
+      </Button>
     );
   }
 
