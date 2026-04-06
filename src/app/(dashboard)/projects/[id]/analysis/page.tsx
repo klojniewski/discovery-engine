@@ -117,8 +117,8 @@ export default async function AnalysisPage({
   const showClassifyPhase =
     status === "crawled" || status === "analysis_failed" ||
     (status === "analyzing" && (settings?.analysisStep === "classifying" || settings?.analysisStep === "scoring" || settings?.analysisStep === "saving"));
-  const showReviewPhase = status === "classified" || (hasTemplates && !hasSections && status !== "analyzing");
   const showResultsPhase = status === "reviewing" || hasSections;
+  const showReviewPhase = !showResultsPhase && (status === "classified" || (hasTemplates && status !== "analyzing"));
 
   return (
     <div className="space-y-8">
