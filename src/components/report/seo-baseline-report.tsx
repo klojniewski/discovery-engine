@@ -18,6 +18,13 @@ function urlPath(url: string): string {
   }
 }
 
+function psiColor(score: number | null): string {
+  if (score === null) return "";
+  if (score >= 90) return "text-green-600";
+  if (score >= 50) return "text-amber-600";
+  return "text-red-600";
+}
+
 function tierLabel(tier: string | null): string {
   if (!tier) return "";
   return tier.replace("_", " ");
@@ -53,8 +60,10 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
         </div>
         {data.hasPsiData && (
           <div className="border rounded-lg p-4">
-            <p className="text-2xl font-bold">
-              {data.summary.avgPsiMobile ?? "—"} / {data.summary.avgPsiDesktop ?? "—"}
+            <p className="text-2xl font-bold flex items-center gap-1">
+              <span className={psiColor(data.summary.avgPsiMobile)}>{data.summary.avgPsiMobile ?? "—"}</span>
+              <span className="text-muted-foreground font-normal">/</span>
+              <span className={psiColor(data.summary.avgPsiDesktop)}>{data.summary.avgPsiDesktop ?? "—"}</span>
             </p>
             <p className="text-sm text-muted-foreground">Avg PSI (mobile / desktop)</p>
           </div>
