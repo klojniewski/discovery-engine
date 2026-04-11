@@ -70,7 +70,7 @@ function TreeNode({
   node: SiteArchitectureNode;
   depth: number;
 }) {
-  const [expanded, setExpanded] = useState(depth < 2);
+  const [expanded, setExpanded] = useState(false);
   const hasChildren = node.children.length > 0;
   const isFolder = hasChildren && !node.page;
   const isFolderWithPage = hasChildren && !!node.page;
