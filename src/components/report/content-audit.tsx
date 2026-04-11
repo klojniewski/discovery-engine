@@ -131,7 +131,7 @@ export function ContentAudit({ audit, notes, clientView }: ContentAuditProps) {
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground text-xs">
-                        \u2014
+                        {"\u2014"}
                       </span>
                     )}
                   </td>
