@@ -78,6 +78,22 @@ Click the page count badge on a template card to open the pages modal. Click the
 
 Tier badges in the SEO "All Scored Pages" table are clickable Select dropdowns matching the same UX as the Analysis content tiers table.
 
+### Client report UX improvements (added 2026-04-11)
+
+The public client report (`/reports/[shareId]`) now has a `clientView` prop on key components that truncates content for readability. Internal dashboard report is unchanged.
+
+- **Templates capped at 15** — sorted by page count, rest shown as "+ N more templates covering X pages"
+- **Content Audit capped at 20 pages per tier** — instead of all pages inline. Footer shows hidden count.
+- **Redirect-critical pages capped at 30** — same pattern
+- **Site Architecture collapsed by default** — all tree nodes start collapsed, users expand to explore
+- **Sidebar nav anchor links fixed** — `scroll-mt-24` on sections so they land below the sticky header
+- **SEO description** — removed Ahrefs branding from client-facing text
+- **PSI scores color-coded** — green (90+), amber (50-89), red (<50) for mobile and desktop separately
+- **SEO redirect warning** — added urgency text about traffic loss consequences
+- **On-Page Technical Debt** — added explanatory subheading about migration quick wins
+- **CrUX by device** — Mobile/Desktop/All Devices tabs, fetches all 3 form factors in parallel
+- **Scrape tab references removed** — pointed to Analysis tab instead (Scrape tab never existed)
+
 ## Files Changed
 
 | File | What |
@@ -90,6 +106,15 @@ Tier badges in the SEO "All Scored Pages" table are clickable Select dropdowns m
 | `src/app/(dashboard)/projects/[id]/performance/page.tsx` | Title-first layout, template name column in PSI table |
 | `src/db/schema.ts` | Added `urlPattern` column to templates |
 | `src/lib/cost-estimates.ts` | Updated cost formula for new pipeline |
-| `src/actions/seo.ts` | Added `resolveOrigin()` for CrUX, template join in `getPsiPages` |
+| `src/actions/seo.ts` | Added `resolveOrigin()` for CrUX, template join in `getPsiPages`, per-device CrUX fetch |
+| `src/services/crux.ts` | Added `formFactor` parameter (PHONE/DESKTOP/ALL) to CrUX API calls |
+| `src/components/report/content-audit.tsx` | `clientView` prop: cap at 20 pages per tier |
+| `src/components/report/template-inventory.tsx` | `clientView` prop: cap at 15 templates |
+| `src/components/report/seo-baseline-report.tsx` | `clientView` prop: cap redirect-critical at 30, PSI colors, redirect warning |
+| `src/components/report/site-architecture.tsx` | Tree collapsed by default |
+| `src/components/report/report-layout.tsx` | `scroll-mt-24` on sections for anchor offset fix |
+| `src/components/seo/crux-overview.tsx` | Mobile/Desktop/All Devices tabs |
+| `src/components/projects/crawl-progress.tsx` | Removed Scrape tab reference |
+| `src/components/projects/project-form.tsx` | Optional email, 1k default, URL-to-name prefill |
 | `drizzle/0008_absent_chat.sql` | Migration: `ALTER TABLE templates ADD COLUMN url_pattern` |
 | `src/services/__tests__/classification.test.ts` | 19 tests for `groupPagesByUrlPrefix` + `splitListingPages` |
