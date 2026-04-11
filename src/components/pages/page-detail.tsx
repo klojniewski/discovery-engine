@@ -120,7 +120,7 @@ export function PageDetail({ page, sectionTypes }: PageDetailProps) {
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
           <p>No screenshot available.</p>
           <p className="text-sm mt-1">
-            Go to the Scrape tab to capture a screenshot first.
+            Run section detection from the Analysis tab to capture screenshots.
           </p>
         </div>
       )}
