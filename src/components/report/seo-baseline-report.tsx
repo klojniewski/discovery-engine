@@ -68,6 +68,8 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
           <p className="text-sm text-muted-foreground mb-4">
             These {data.redirectCriticalPages.length} pages must have proper
             redirects configured during migration to preserve SEO value.
+            Failing to redirect these pages will result in immediate organic traffic loss
+            and forfeiture of accumulated link equity.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -122,7 +124,10 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
 
       {/* On-Page Technical Debt */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">On-Page Technical Debt</h3>
+        <h3 className="text-lg font-semibold mb-1">On-Page Technical Debt</h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          SEO issues that should be resolved during migration. These represent quick wins for improving search visibility on the new platform.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="border rounded-lg p-4">
             <p className="text-2xl font-bold">{data.onPageIssues.missingH1}</p>

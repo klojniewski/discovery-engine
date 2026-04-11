@@ -5,15 +5,29 @@ import type { TemplateSection } from "@/types/report";
 interface TemplateInventoryProps {
   templates: TemplateSection[];
   notes?: string | null;
+  clientView?: boolean;
 }
 
+const MAX_TEMPLATES_CLIENT = 15;
 
 export function TemplateInventory({
   templates,
   notes,
+  clientView,
 }: TemplateInventoryProps) {
   const sorted = [...templates].sort(
     (a, b) => (b.pageCount ?? 0) - (a.pageCount ?? 0)
+  );
+
+  const displayTemplates = clientView
+    ? sorted.slice(0, MAX_TEMPLATES_CLIENT)
+    : sorted;
+  const hiddenTemplates = clientView
+    ? sorted.slice(MAX_TEMPLATES_CLIENT)
+    : [];
+  const hiddenPageCount = hiddenTemplates.reduce(
+    (sum, t) => sum + (t.pageCount ?? 0),
+    0
   );
 
   return (
@@ -24,7 +38,7 @@ export function TemplateInventory({
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sorted.map((template) => (
+        {displayTemplates.map((template) => (
           <Card key={template.id} className="overflow-hidden">
             {template.representativeScreenshot && (
               <div className="aspect-video bg-muted overflow-hidden border-b">
@@ -61,6 +75,12 @@ export function TemplateInventory({
           </Card>
         ))}
       </div>
+
+      {hiddenTemplates.length > 0 && (
+        <p className="mt-4 text-sm text-muted-foreground text-center">
+          + {hiddenTemplates.length} more templates covering {hiddenPageCount} pages
+        </p>
+      )}
 
       {notes && (
         <div className="mt-6 rounded-lg border bg-amber-50/50 p-4 text-sm">

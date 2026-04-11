@@ -4,7 +4,10 @@ import type { ContentAuditSection } from "@/types/report";
 interface ContentAuditProps {
   audit: ContentAuditSection;
   notes?: string | null;
+  clientView?: boolean;
 }
+
+const PAGES_PER_TIER_CLIENT = 20;
 
 const TIER_CONFIG = {
   must_migrate: { label: "Must Migrate", color: "bg-green-100 text-green-800", barColor: "bg-green-500" },
@@ -13,7 +16,7 @@ const TIER_CONFIG = {
   archive: { label: "Archive", color: "bg-red-100 text-red-800", barColor: "bg-red-500" },
 } as const;
 
-export function ContentAudit({ audit, notes }: ContentAuditProps) {
+export function ContentAudit({ audit, notes, clientView }: ContentAuditProps) {
   const total = audit.pages.length || 1;
 
   const tierOrder = ["must_migrate", "improve", "consolidate", "archive"] as const;
@@ -24,6 +27,16 @@ export function ContentAudit({ audit, notes }: ContentAuditProps) {
       (order[b.contentTier as keyof typeof order] ?? 4)
     );
   });
+
+  // In client view, show only top N pages per tier
+  const displayPages = clientView
+    ? tierOrder.flatMap((tier) => {
+        const tierPages = sortedPages.filter((p) => p.contentTier === tier);
+        return tierPages.slice(0, PAGES_PER_TIER_CLIENT);
+      })
+    : sortedPages;
+
+  const hiddenCount = sortedPages.length - displayPages.length;
 
   return (
     <section id="content-audit">
@@ -89,7 +102,7 @@ export function ContentAudit({ audit, notes }: ContentAuditProps) {
             </tr>
           </thead>
           <tbody>
-            {sortedPages.map((page) => {
+            {displayPages.map((page) => {
               const config =
                 TIER_CONFIG[page.contentTier as keyof typeof TIER_CONFIG];
               return (
@@ -128,6 +141,12 @@ export function ContentAudit({ audit, notes }: ContentAuditProps) {
           </tbody>
         </table>
       </div>
+
+      {hiddenCount > 0 && (
+        <p className="mt-3 text-sm text-muted-foreground text-center">
+          Showing top {PAGES_PER_TIER_CLIENT} pages per tier. {hiddenCount} additional pages not shown.
+        </p>
+      )}
 
       {notes && (
         <div className="mt-6 rounded-lg border bg-amber-50/50 p-4 text-sm">

@@ -75,6 +75,7 @@ export default async function PublicReportPage({
             <TemplateInventory
               templates={content.templates}
               notes={section.notes}
+              clientView
             />
           );
         })()}
@@ -107,7 +108,7 @@ export default async function PublicReportPage({
           if (!section) return null;
           const content = section.content as { audit: ContentAuditData };
           return (
-            <ContentAudit audit={content.audit} notes={section.notes} />
+            <ContentAudit audit={content.audit} notes={section.notes} clientView />
           );
         })()}
 
