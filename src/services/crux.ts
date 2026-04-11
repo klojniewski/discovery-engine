@@ -41,20 +41,28 @@ export interface CruxHistoryData {
   fetchedAt: string;
 }
 
+export type CruxFormFactor = "PHONE" | "DESKTOP" | "ALL";
+
 export async function fetchCruxOrigin(
-  origin: string
+  origin: string,
+  formFactor?: CruxFormFactor
 ): Promise<CruxOriginData | { error: string }> {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) return { error: "PAGESPEED_API_KEY not configured" };
 
   try {
+    const body: Record<string, unknown> = {
+      origin: origin.replace(/\/$/, ""),
+      metrics: [...METRICS],
+    };
+    if (formFactor && formFactor !== "ALL") {
+      body.formFactor = formFactor;
+    }
+
     const res = await fetch(`${CRUX_API_URL}?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        origin: origin.replace(/\/$/, ""),
-        metrics: [...METRICS],
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
 
@@ -102,19 +110,25 @@ export async function fetchCruxOrigin(
 }
 
 export async function fetchCruxHistory(
-  origin: string
+  origin: string,
+  formFactor?: CruxFormFactor
 ): Promise<CruxHistoryData | { error: string }> {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) return { error: "PAGESPEED_API_KEY not configured" };
 
   try {
+    const body: Record<string, unknown> = {
+      origin: origin.replace(/\/$/, ""),
+      metrics: [...METRICS],
+    };
+    if (formFactor && formFactor !== "ALL") {
+      body.formFactor = formFactor;
+    }
+
     const res = await fetch(`${CRUX_HISTORY_URL}?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        origin: origin.replace(/\/$/, ""),
-        metrics: [...METRICS],
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
 

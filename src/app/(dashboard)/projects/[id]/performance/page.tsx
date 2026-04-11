@@ -64,8 +64,11 @@ export default async function PerformancePage({
       {/* CrUX Origin Data */}
       <CruxOverview
         projectId={id}
-        initialOrigin={crux?.origin ?? null}
-        initialHistory={crux?.history ?? null}
+        initialData={crux ? {
+          phone: crux.phone,
+          desktop: crux.desktop,
+          all: crux.all,
+        } : null}
       />
 
       {/* PSI Status + Action */}

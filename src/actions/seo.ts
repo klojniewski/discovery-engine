@@ -586,29 +586,46 @@ export async function fetchCruxData(projectId: string) {
 
   // Follow redirects to find the canonical origin (e.g. dremio.com → www.dremio.com)
   const origin = await resolveOrigin(project.websiteUrl);
-  const [originResult, historyResult] = await Promise.all([
-    fetchCruxOrigin(origin),
-    fetchCruxHistory(origin),
-  ]);
+
+  // Fetch all 3 form factors in parallel: phone, desktop, all
+  const [phoneOrigin, phoneHistory, desktopOrigin, desktopHistory, allOrigin, allHistory] =
+    await Promise.all([
+      fetchCruxOrigin(origin, "PHONE"),
+      fetchCruxHistory(origin, "PHONE"),
+      fetchCruxOrigin(origin, "DESKTOP"),
+      fetchCruxHistory(origin, "DESKTOP"),
+      fetchCruxOrigin(origin, "ALL"),
+      fetchCruxHistory(origin, "ALL"),
+    ]);
+
+  // At least one form factor must succeed
+  const hasPhone = !("error" in phoneOrigin);
+  const hasDesktop = !("error" in desktopOrigin);
+  const hasAll = !("error" in allOrigin);
+
+  if (!hasPhone && !hasDesktop && !hasAll) {
+    const err = "error" in phoneOrigin ? phoneOrigin.error : "CrUX data unavailable";
+    return { error: err };
+  }
 
   const updates: Record<string, unknown> = {};
 
-  if ("error" in originResult) {
-    return { error: originResult.error };
+  if (hasPhone) {
+    updates.cruxPhoneOrigin = phoneOrigin;
+    if (!("error" in phoneHistory)) updates.cruxPhoneHistory = phoneHistory;
   }
-  updates.cruxOrigin = originResult;
-
-  if (!("error" in historyResult)) {
-    updates.cruxHistory = historyResult;
+  if (hasDesktop) {
+    updates.cruxDesktopOrigin = desktopOrigin;
+    if (!("error" in desktopHistory)) updates.cruxDesktopHistory = desktopHistory;
+  }
+  if (hasAll) {
+    updates.cruxOrigin = allOrigin;
+    if (!("error" in allHistory)) updates.cruxHistory = allHistory;
   }
 
   await updateProjectSettings(projectId, null, updates);
 
-  return {
-    origin: originResult,
-    history: "error" in historyResult ? null : historyResult,
-    historyError: "error" in historyResult ? historyResult.error : null,
-  };
+  return { success: true };
 }
 
 export async function getCruxData(projectId: string) {
@@ -621,8 +638,18 @@ export async function getCruxData(projectId: string) {
 
   const settings = project.settings as Record<string, unknown> | null;
   return {
-    origin: (settings?.cruxOrigin as CruxOriginData) ?? null,
-    history: (settings?.cruxHistory as CruxHistoryData) ?? null,
+    phone: {
+      origin: (settings?.cruxPhoneOrigin as CruxOriginData) ?? null,
+      history: (settings?.cruxPhoneHistory as CruxHistoryData) ?? null,
+    },
+    desktop: {
+      origin: (settings?.cruxDesktopOrigin as CruxOriginData) ?? null,
+      history: (settings?.cruxDesktopHistory as CruxHistoryData) ?? null,
+    },
+    all: {
+      origin: (settings?.cruxOrigin as CruxOriginData) ?? null,
+      history: (settings?.cruxHistory as CruxHistoryData) ?? null,
+    },
   };
 }
 

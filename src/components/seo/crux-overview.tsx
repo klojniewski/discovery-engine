@@ -163,32 +163,49 @@ const OTHER_METRICS: CruxMetricName[] = [
   "experimental_time_to_first_byte",
 ];
 
+interface FormFactorData {
+  origin: CruxOriginData | null;
+  history: CruxHistoryData | null;
+}
+
+const TABS = [
+  { key: "phone", label: "Mobile" },
+  { key: "desktop", label: "Desktop" },
+  { key: "all", label: "All Devices" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
 export function CruxOverview({
   projectId,
-  initialOrigin,
-  initialHistory,
+  initialData,
 }: {
   projectId: string;
-  initialOrigin: CruxOriginData | null;
-  initialHistory: CruxHistoryData | null;
+  initialData: Record<TabKey, FormFactorData> | null;
 }) {
-  const [origin, setOrigin] = useState(initialOrigin);
-  const [history, setHistory] = useState(initialHistory);
+  const [data, setData] = useState<Record<TabKey, FormFactorData>>(
+    initialData ?? { phone: { origin: null, history: null }, desktop: { origin: null, history: null }, all: { origin: null, history: null } }
+  );
+  const [activeTab, setActiveTab] = useState<TabKey>("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasAnyData = data.phone.origin || data.desktop.origin || data.all.origin;
 
   const handleFetch = async () => {
     setLoading(true);
     setError(null);
     const result = await fetchCruxData(projectId);
     if ("error" in result && result.error) {
-      setError(result.error);
+      setError(result.error as string);
     } else {
-      if (result.origin) setOrigin(result.origin as CruxOriginData);
-      if (result.history) setHistory(result.history as CruxHistoryData);
+      // Reload the page to pick up new data from server
+      window.location.reload();
     }
     setLoading(false);
   };
+
+  const current = data[activeTab];
 
   return (
     <div className="space-y-4">
@@ -210,14 +227,14 @@ export function CruxOverview({
               </Tooltip>
             </div>
             <Button
-              variant={origin ? "outline" : "default"}
+              variant={hasAnyData ? "outline" : "default"}
               size="sm"
               disabled={loading}
               onClick={handleFetch}
             >
               {loading ? (
                 "Fetching..."
-              ) : origin ? (
+              ) : hasAnyData ? (
                 <span className="flex items-center gap-1.5">
                   <RefreshCw className="h-3.5 w-3.5" />
                   Refresh
@@ -233,62 +250,96 @@ export function CruxOverview({
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          {origin && (
-            <div className="space-y-6">
-              {/* Core Web Vitals */}
-              <div>
-                <h4 className="text-sm font-medium mb-3">Core Web Vitals</h4>
-                <div className="grid gap-4 md:grid-cols-3">
-                  {CORE_WEB_VITALS.map((name) => {
-                    const m = origin.metrics[name];
-                    if (!m) return null;
-                    const config = METRIC_CONFIG[name];
-                    const rating = ratingColor(m.p75, config.goodMax, config.poorMin);
-                    const historyPoints = history?.metrics[name];
-                    return (
-                      <MetricCard
-                        key={name}
-                        config={config}
-                        metric={m}
-                        rating={rating}
-                        historyPoints={historyPoints}
-                      />
-                    );
-                  })}
-                </div>
+          {hasAnyData && (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-4 border-b">
+                {TABS.map((tab) => {
+                  const tabHasData = !!data[tab.key].origin;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                        activeTab === tab.key
+                          ? "border-primary text-foreground"
+                          : tabHasData
+                            ? "border-transparent text-muted-foreground hover:text-foreground"
+                            : "border-transparent text-muted-foreground/40 cursor-not-allowed"
+                      }`}
+                      disabled={!tabHasData}
+                    >
+                      {tab.label}
+                      {!tabHasData && (
+                        <span className="ml-1 text-[10px]">(no data)</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Other metrics */}
-              <div>
-                <h4 className="text-sm font-medium mb-3">Other Metrics</h4>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {OTHER_METRICS.map((name) => {
-                    const m = origin.metrics[name];
-                    if (!m) return null;
-                    const config = METRIC_CONFIG[name];
-                    const rating = ratingColor(m.p75, config.goodMax, config.poorMin);
-                    const historyPoints = history?.metrics[name];
-                    return (
-                      <MetricCard
-                        key={name}
-                        config={config}
-                        metric={m}
-                        rating={rating}
-                        historyPoints={historyPoints}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
+              {current.origin ? (
+                <div className="space-y-6">
+                  {/* Core Web Vitals */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Core Web Vitals</h4>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {CORE_WEB_VITALS.map((name) => {
+                        const m = current.origin!.metrics[name];
+                        if (!m) return null;
+                        const config = METRIC_CONFIG[name];
+                        const rating = ratingColor(m.p75, config.goodMax, config.poorMin);
+                        const historyPoints = current.history?.metrics[name];
+                        return (
+                          <MetricCard
+                            key={name}
+                            config={config}
+                            metric={m}
+                            rating={rating}
+                            historyPoints={historyPoints}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
 
-              <p className="text-xs text-muted-foreground">
-                Data from {origin.origin} &middot; Fetched{" "}
-                {origin.fetchedAt.slice(0, 10)}
-              </p>
-            </div>
+                  {/* Other metrics */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Other Metrics</h4>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {OTHER_METRICS.map((name) => {
+                        const m = current.origin!.metrics[name];
+                        if (!m) return null;
+                        const config = METRIC_CONFIG[name];
+                        const rating = ratingColor(m.p75, config.goodMax, config.poorMin);
+                        const historyPoints = current.history?.metrics[name];
+                        return (
+                          <MetricCard
+                            key={name}
+                            config={config}
+                            metric={m}
+                            rating={rating}
+                            historyPoints={historyPoints}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Data from {current.origin.origin} &middot; Fetched{" "}
+                    {current.origin.fetchedAt.slice(0, 10)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No CrUX data available for this form factor. Sites with low traffic may not have per-device breakdowns.
+                </p>
+              )}
+            </>
           )}
 
-          {!origin && !error && !loading && (
+          {!hasAnyData && !error && !loading && (
             <p className="text-sm text-muted-foreground">
               Click &quot;Fetch CrUX Data&quot; to load real user performance
               data for this domain.
