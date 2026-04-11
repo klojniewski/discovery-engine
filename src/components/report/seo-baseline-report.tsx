@@ -30,7 +30,9 @@ function tierLabel(tier: string | null): string {
   return tier.replace("_", " ");
 }
 
-export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
+const MAX_CRITICAL_PAGES_CLIENT = 30;
+
+export function SeoBaselineReport({ data, clientView }: { data: SeoBaselineData; clientView?: boolean }) {
   return (
     <section id="seo-baseline" className="space-y-8">
       <div>
@@ -71,11 +73,18 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
       </div>
 
       {/* Redirect-Critical Pages Table */}
-      {data.redirectCriticalPages.length > 0 && (
+      {data.redirectCriticalPages.length > 0 && (() => {
+        const allCritical = data.redirectCriticalPages;
+        const displayCritical = clientView
+          ? allCritical.slice(0, MAX_CRITICAL_PAGES_CLIENT)
+          : allCritical;
+        const hiddenCritical = allCritical.length - displayCritical.length;
+
+        return (
         <div>
           <h3 className="text-lg font-semibold mb-1">Redirect-Critical Pages</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            These {data.redirectCriticalPages.length} pages must have proper
+            These {allCritical.length} pages must have proper
             redirects configured during migration to preserve SEO value.
             Failing to redirect these pages will result in immediate organic traffic loss
             and forfeiture of accumulated link equity.
@@ -94,7 +103,7 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
                 </tr>
               </thead>
               <tbody>
-                {data.redirectCriticalPages.map((page, i) => (
+                {displayCritical.map((page, i) => (
                   <tr key={i} className="border-b">
                     <td className="py-2 pr-4 max-w-[300px]">
                       <span className="truncate block text-xs" title={page.url}>
@@ -128,8 +137,14 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
               </tbody>
             </table>
           </div>
+          {hiddenCritical > 0 && (
+            <p className="mt-3 text-sm text-muted-foreground text-center">
+              Showing top {MAX_CRITICAL_PAGES_CLIENT} redirect-critical pages. {hiddenCritical} additional pages not shown.
+            </p>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* On-Page Technical Debt */}
       <div>

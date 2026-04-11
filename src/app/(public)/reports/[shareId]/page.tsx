@@ -119,7 +119,7 @@ export default async function PublicReportPage({
             seoBaseline: SeoBaselineData;
           };
           return (
-            <SeoBaselineReport data={content.seoBaseline} />
+            <SeoBaselineReport data={content.seoBaseline} clientView />
           );
         })()}
       </ReportLayout>

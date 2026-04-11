@@ -97,7 +97,7 @@ export function ReportLayout({
         </nav>
 
         {/* Content */}
-        <main className="flex-1 min-w-0 py-8 px-6 lg:px-12 space-y-16">
+        <main className="flex-1 min-w-0 py-8 px-6 lg:px-12 space-y-16 [&>section]:scroll-mt-24">
           {children}
         </main>
       </div>
