@@ -1,11 +1,26 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProject, updateProject } from "@/actions/projects";
 import { useActionState } from "react";
+
+function urlToClientName(url: string): string {
+  try {
+    const { hostname } = new URL(url);
+    // Remove www. and TLD, capitalize first letter
+    const name = hostname
+      .replace(/^www\./, "")
+      .replace(/\.[^.]+$/, "")
+      .replace(/\.[^.]+$/, ""); // handle .co.uk etc.
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch {
+    return "";
+  }
+}
 
 interface ProjectFormProps {
   mode: "create" | "edit";
@@ -29,6 +44,15 @@ export function ProjectForm({ mode, projectId, defaults }: ProjectFormProps) {
   }
 
   const [state, action, isPending] = useActionState(formAction, null);
+  const [clientName, setClientName] = useState(defaults?.clientName ?? "");
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+
+  const handleUrlBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    if (!nameManuallyEdited && mode === "create") {
+      const suggested = urlToClientName(e.target.value);
+      if (suggested) setClientName(suggested);
+    }
+  }, [nameManuallyEdited, mode]);
 
   return (
     <form action={action} className="space-y-6">
@@ -48,6 +72,7 @@ export function ProjectForm({ mode, projectId, defaults }: ProjectFormProps) {
           defaultValue={defaults?.websiteUrl}
           required
           disabled={mode === "edit"}
+          onBlur={handleUrlBlur}
         />
         {mode === "create" && (
           <p className="text-xs text-muted-foreground">
@@ -68,7 +93,8 @@ export function ProjectForm({ mode, projectId, defaults }: ProjectFormProps) {
             id="clientName"
             name="clientName"
             placeholder="Acme Corp"
-            defaultValue={defaults?.clientName}
+            value={clientName}
+            onChange={(e) => { setClientName(e.target.value); setNameManuallyEdited(true); }}
             required
           />
         </div>
@@ -78,9 +104,8 @@ export function ProjectForm({ mode, projectId, defaults }: ProjectFormProps) {
             id="clientEmail"
             name="clientEmail"
             type="email"
-            placeholder="contact@acme.com"
+            placeholder="contact@acme.com (optional)"
             defaultValue={defaults?.clientEmail}
-            required
           />
         </div>
       </div>
@@ -91,12 +116,12 @@ export function ProjectForm({ mode, projectId, defaults }: ProjectFormProps) {
           id="pageLimit"
           name="pageLimit"
           type="number"
-          defaultValue={defaults?.pageLimit ?? 500}
+          defaultValue={defaults?.pageLimit ?? 1000}
           min={10}
           max={2000}
         />
         <p className="text-xs text-muted-foreground">
-          Maximum number of pages to crawl (default: 500).
+          Maximum number of pages to crawl (default: 1,000).
         </p>
       </div>
 

@@ -17,12 +17,12 @@ export async function createProject(formData: FormData) {
   const url = formData.get("url") as string;
   const clientName = formData.get("clientName") as string;
   const clientEmail = formData.get("clientEmail") as string;
-  const pageLimit = parseInt(formData.get("pageLimit") as string) || 500;
+  const pageLimit = parseInt(formData.get("pageLimit") as string) || 1000;
   const notes = (formData.get("notes") as string) || undefined;
   const excludePaths = (formData.get("excludePaths") as string) || undefined;
 
-  if (!url || !clientName || !clientEmail) {
-    return { error: "URL, client name, and client email are required" };
+  if (!url || !clientName) {
+    return { error: "URL and client name are required" };
   }
 
   const parsedExcludePaths = excludePaths
@@ -37,7 +37,7 @@ export async function createProject(formData: FormData) {
     .values({
       websiteUrl: url,
       clientName,
-      clientEmail,
+      clientEmail: clientEmail || "",
       settings: {
         pageLimit,
         notes,
@@ -52,12 +52,12 @@ export async function createProject(formData: FormData) {
 export async function updateProject(projectId: string, formData: FormData) {
   const clientName = formData.get("clientName") as string;
   const clientEmail = formData.get("clientEmail") as string;
-  const pageLimit = parseInt(formData.get("pageLimit") as string) || 500;
+  const pageLimit = parseInt(formData.get("pageLimit") as string) || 1000;
   const notes = (formData.get("notes") as string) || undefined;
   const excludePaths = (formData.get("excludePaths") as string) || undefined;
 
-  if (!clientName || !clientEmail) {
-    return { error: "Client name and email are required" };
+  if (!clientName) {
+    return { error: "Client name is required" };
   }
 
   const [project] = await db
@@ -79,7 +79,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     .update(projects)
     .set({
       clientName,
-      clientEmail,
+      clientEmail: clientEmail || "",
       settings: {
         ...(project.settings as Record<string, unknown>),
         pageLimit,

@@ -13,7 +13,7 @@ import {
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientName: varchar("client_name", { length: 255 }).notNull(),
-  clientEmail: varchar("client_email", { length: 255 }).notNull(),
+  clientEmail: varchar("client_email", { length: 255 }).notNull().default(""),
   websiteUrl: varchar("website_url", { length: 500 }).notNull(),
   status: varchar("status", { length: 50 }).notNull().default("created"),
   reportShareId: varchar("report_share_id", { length: 50 }).unique(),
