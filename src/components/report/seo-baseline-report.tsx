@@ -30,8 +30,8 @@ export function SeoBaselineReport({ data }: { data: SeoBaselineData }) {
         <h2 className="text-2xl font-bold mb-2">SEO Baseline</h2>
         <p className="text-muted-foreground">
           {data.hasAhrefsData
-            ? "Full SEO analysis with Ahrefs traffic and link equity data"
-            : "On-page analysis only — upload Ahrefs data for traffic and link equity insights"}
+            ? "SEO analysis with organic traffic, link equity, and on-page health data"
+            : "On-page analysis only — traffic and link equity data not yet available"}
         </p>
       </div>
 
