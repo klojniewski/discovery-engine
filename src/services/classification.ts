@@ -509,16 +509,17 @@ async function scoreBatch(
 CONTEXT: This is a risk-free website migration. The goal is to preserve the existing site structure and content. Most pages should be migrated.
 
 CONTENT TIERS:
-- "must_migrate": Any page with real content that serves a business purpose. This includes product/service pages, blog posts, case studies, about pages, legal pages, landing pages, resources, guides, press releases, documentation. When in doubt, choose must_migrate.
-- "improve": Pages that should be migrated but need significant content updates — very outdated announcements with no lasting value, pages with broken/missing content, mostly placeholder text.
-- "archive": ONLY pages with no real content — empty placeholder pages, error pages, pages with fewer than 50 words and no clear purpose.
+- "must_migrate": Pages with substantial content (600+ words) that serve a business purpose. Also structurally critical pages regardless of word count: homepage, legal/policy pages, main navigation pages.
+- "improve": Pages that should be migrated but need content enhancement — pages with fewer than 600 words, thin landing pages, short form/utility pages. These work but would benefit from more content during migration.
+- "archive": ONLY pages that are completely empty, broken, or serve no purpose at all. This is extremely rare.
 
 GUIDELINES:
-- Default to must_migrate. Most pages on a well-structured site should be migrated as-is.
-- Blog posts with real content are must_migrate regardless of age — old content still has SEO value.
-- Legal/policy pages are always must_migrate.
-- improve means "migrate but flag for content review" — use sparingly.
-- archive is rare — only for truly empty or broken pages.
+- Use word count as the primary signal: 600+ words = must_migrate, under 600 words = improve.
+- Exception: homepage and legal/policy pages are always must_migrate regardless of word count.
+- Conversion pages (thank-you, confirmation, contact forms, booking, sign-up pages) are always improve — never archive. They serve a business function even if thin.
+- Blog posts and articles with 600+ words are must_migrate regardless of age — old content has SEO value.
+- archive is extremely rare — only for pages with no content AND no purpose (e.g., blank error pages).
+- When in doubt between must_migrate and improve, check the word count.
 
 Pages to analyze:
 ${pagesDescription}
