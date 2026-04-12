@@ -121,27 +121,31 @@ export function ClassifyRunner({
 
   // Compact mode: show specific re-run button based on mode
   if (compact) {
+    const progressText = isAnalyzing && progress
+      ? ` (${progress.completed}/${progress.total})`
+      : "";
+
     if (mode === "templates") {
       return (
-        <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isPending}>
-          {runningAction === "templates" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-classify
+        <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isPending || isAnalyzing}>
+          {runningAction === "templates" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+          {runningAction === "templates" && isAnalyzing ? `Classifying${progressText}` : "Re-classify"}
         </Button>
       );
     }
     if (mode === "tiers") {
       return (
-        <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isPending}>
-          {runningAction === "tiers" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-          Re-score
+        <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isPending || isAnalyzing}>
+          {runningAction === "tiers" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+          {runningAction === "tiers" && isAnalyzing ? `Scoring${progressText}` : "Re-score"}
         </Button>
       );
     }
     // mode === "all" or default
     return (
-      <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
-        {runningAction === "all" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
-        Re-run All
+      <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending || isAnalyzing}>
+        {runningAction === "all" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
+        {runningAction === "all" && isAnalyzing ? `Running${progressText}` : "Re-run All"}
       </Button>
     );
   }
