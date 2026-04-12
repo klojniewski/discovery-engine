@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { FolderPlus } from "lucide-react";
 import { db } from "@/db";
-import { projects } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { projects, pages } from "@/db/schema";
+import { desc, eq, sql } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { getAllProjectCosts } from "@/actions/costs";
 
 export default async function ProjectsPage() {
-  const [allProjects, costMap] = await Promise.all([
+  const [allProjects, costMap, pageCounts] = await Promise.all([
     db.select().from(projects).orderBy(desc(projects.createdAt)),
     getAllProjectCosts(),
+    db
+      .select({ projectId: pages.projectId, count: sql<number>`count(*)` })
+      .from(pages)
+      .groupBy(pages.projectId),
   ]);
+
+  const pageCountMap = new Map(pageCounts.map((r) => [r.projectId, Number(r.count)]));
 
   return (
     <div>
@@ -61,6 +67,11 @@ export default async function ProjectsPage() {
                   <p className="text-sm text-muted-foreground">{project.websiteUrl}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {pageCountMap.get(project.id) ? (
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {pageCountMap.get(project.id)} pages
+                    </span>
+                  ) : null}
                   {cost && cost.totalCostUsd > 0 && (
                     <span className="text-xs tabular-nums text-muted-foreground">
                       ${cost.totalCostUsd.toFixed(2)}
