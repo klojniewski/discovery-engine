@@ -63,10 +63,17 @@ async function updateStep(
 
 async function runClassifyAndScore(projectId: string, options?: { classifyOnly?: boolean }) {
   const classifyOnly = options?.classifyOnly ?? false;
+  // Reset all exclusions before re-evaluating — ensures changed patterns
+  // don't leave stale exclusions from previous runs
+  await db
+    .update(pages)
+    .set({ excluded: false })
+    .where(eq(pages.projectId, projectId));
+
   let projectPages = await db
     .select()
     .from(pages)
-    .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+    .where(eq(pages.projectId, projectId));
 
   // ── Step 0: Exclude pagination and taxonomy archive pages ──
   const EXCLUDABLE = /\/page\/\d+|\/(tags?|categor(?:y|ies))\//;
