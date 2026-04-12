@@ -94,6 +94,19 @@ The public client report (`/reports/[shareId]`) now has a `clientView` prop on k
 - **CrUX by device** — Mobile/Desktop/All Devices tabs, fetches all 3 form factors in parallel
 - **Scrape tab references removed** — pointed to Analysis tab instead (Scrape tab never existed)
 
+### Content tier scoring rewrite (added 2026-04-12)
+
+Tier scoring prompt rewritten for "risk-free migration" philosophy:
+- **600+ words → must_migrate** (substantial content, migrate as-is)
+- **Under 600 words → improve** (migrate but flag for content review)
+- **Homepage/legal → must_migrate** regardless of word count
+- **Conversion pages (thank-you, contact, booking) → improve**, never archive
+- **Archive is extremely rare** — only truly empty/broken pages
+
+Pre-scoring exclusion: pagination (`/page/\d+`), tag archives (`/tag/`, `/tags/`), and category archives (`/category/`, `/categories/`) are marked `excluded=true` before any analysis. Exclusions reset at the start of each run to avoid stale exclusions from previous patterns.
+
+Fire-and-forget server actions: re-run buttons no longer use `startTransition` (which blocked re-renders). Server actions are fire-and-forget, polling handles progress updates ("Scoring 23/1200") and page reload on completion.
+
 ## Files Changed
 
 | File | What |

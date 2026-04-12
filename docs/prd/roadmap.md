@@ -12,11 +12,18 @@
 - [x] API cost tracking per project per step
 - [x] Supabase Auth for team login
 - [x] 56 unit tests passing (URL grouping, listing split, SEO scoring, Ahrefs parsing)
+- [x] URL-prefix classification with listing/detail split and naming convention
+- [x] Content tier scoring rewritten for risk-free migration (600w threshold, exclusion of pagination/taxonomy)
+- [x] Client report UX improvements (truncation, anchor links, collapsed tree, PSI colors)
+- [x] CrUX data by device (Mobile/Desktop/All Devices tabs)
+- [x] Inline tier editing on SEO table + representative page picker
+- [x] Re-run buttons with live progress (scoring 23/1200)
+- [x] Project form: optional email, 1k default, URL-to-name prefill
 
 ## Near-term (Weeks 1-2)
 
-- [ ] Multi-site testing -- WordPress blog, React SPA, large content site (500+ pages)
-- [ ] Full end-to-end report testing -- verify pagepro.co report works completely
+- [x] Multi-site testing -- WordPress blog, React SPA, large content site (500+ pages)
+- [x] Full end-to-end report testing -- verify pagepro.co report works completely
 - [ ] Production deployment -- Vercel, env vars, custom domain, Supabase production, Sentry
 
 ## Medium-term (Weeks 3-6)
