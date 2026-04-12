@@ -70,16 +70,10 @@ export function ClassifyRunner({
     setRunningAction("all");
     setStatus("analyzing");
     setCurrentStep("classifying");
-    startTransition(async () => {
-      try {
-        await runClassificationAndScoring(projectId);
-        setStatus("classified");
-        setCurrentStep("classified");
-        window.location.reload();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("analysis_failed");
-      }
+    runClassificationAndScoring(projectId).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("analysis_failed");
+      setRunningAction(null);
     });
   }
 
@@ -90,15 +84,10 @@ export function ClassifyRunner({
     setRunningAction("templates");
     setStatus("analyzing");
     setCurrentStep("classifying");
-    startTransition(async () => {
-      try {
-        await runTemplateClassificationOnly(projectId);
-        window.location.reload();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("analysis_failed");
-        setRunningAction(null);
-      }
+    runTemplateClassificationOnly(projectId).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("analysis_failed");
+      setRunningAction(null);
     });
   }
 
@@ -107,15 +96,11 @@ export function ClassifyRunner({
     setRunningAction("tiers");
     setStatus("analyzing");
     setCurrentStep("scoring");
-    startTransition(async () => {
-      try {
-        await runTierScoringOnly(projectId);
-        window.location.reload();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("analysis_failed");
-        setRunningAction(null);
-      }
+    // Fire-and-forget — let polling handle progress updates and completion
+    runTierScoringOnly(projectId).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("analysis_failed");
+      setRunningAction(null);
     });
   }
 
@@ -127,7 +112,7 @@ export function ClassifyRunner({
 
     if (mode === "templates") {
       return (
-        <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isPending || isAnalyzing}>
+        <Button variant="outline" size="sm" onClick={handleRunTemplatesOnly} disabled={isAnalyzing}>
           {runningAction === "templates" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
           {runningAction === "templates" && isAnalyzing ? `Classifying${progressText}` : "Re-classify"}
         </Button>
@@ -135,7 +120,7 @@ export function ClassifyRunner({
     }
     if (mode === "tiers") {
       return (
-        <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isPending || isAnalyzing}>
+        <Button variant="outline" size="sm" onClick={handleRunTiersOnly} disabled={isAnalyzing}>
           {runningAction === "tiers" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
           {runningAction === "tiers" && isAnalyzing ? `Scoring${progressText}` : "Re-score"}
         </Button>
@@ -143,7 +128,7 @@ export function ClassifyRunner({
     }
     // mode === "all" or default
     return (
-      <Button variant="outline" size="sm" onClick={handleRun} disabled={isPending || isAnalyzing}>
+      <Button variant="outline" size="sm" onClick={handleRun} disabled={isAnalyzing}>
         {runningAction === "all" && isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />}
         {runningAction === "all" && isAnalyzing ? `Running${progressText}` : "Re-run All"}
       </Button>
