@@ -506,17 +506,19 @@ async function scoreBatch(
 
   const prompt = `Analyze each webpage and assign a content migration tier.
 
+CONTEXT: This is a risk-free website migration. The goal is to preserve the existing site structure and content. Most pages should be migrated.
+
 CONTENT TIERS:
-- "must_migrate": High-value pages critical to the business — homepage, key service/product pages, case studies, about pages, team pages, pricing. Also includes legally required pages (privacy policy, terms of service, cookie policy) — these MUST be migrated regardless of SEO value.
-- "improve": Pages worth keeping but need work — thin landing pages, outdated content, pages with poor structure. They have potential value but aren't migration-ready as-is.
-- "archive": Low-value pages to drop or redirect — empty/placeholder pages, outdated job postings, utility pages with no SEO or business value, blog listing/pagination pages (/page/2, /page/3), tag archives, author archives.
+- "must_migrate": Any page with real content that serves a business purpose. This includes product/service pages, blog posts, case studies, about pages, legal pages, landing pages, resources, guides, press releases, documentation. When in doubt, choose must_migrate.
+- "improve": Pages that should be migrated but need significant content updates — very outdated announcements with no lasting value, pages with broken/missing content, mostly placeholder text.
+- "archive": ONLY pages with no real content — empty placeholder pages, error pages, pages with fewer than 50 words and no clear purpose.
 
 GUIDELINES:
-- Judge content tier by VALUE, not metadata formatting.
-- Blog posts with substantial content (500+ words) are usually must_migrate.
-- Legal/policy pages (privacy, terms, cookies, GDPR) are must_migrate — they are legally required.
-- WordPress pagination pages (/page/2, /author/*/page/N, /category/*/page/N) are archive.
-- Pages with very few words (<50) and no clear purpose are archive.
+- Default to must_migrate. Most pages on a well-structured site should be migrated as-is.
+- Blog posts with real content are must_migrate regardless of age — old content still has SEO value.
+- Legal/policy pages are always must_migrate.
+- improve means "migrate but flag for content review" — use sparingly.
+- archive is rare — only for truly empty or broken pages.
 
 Pages to analyze:
 ${pagesDescription}

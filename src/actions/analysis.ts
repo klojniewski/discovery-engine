@@ -63,10 +63,18 @@ async function updateStep(
 
 async function runClassifyAndScore(projectId: string, options?: { classifyOnly?: boolean }) {
   const classifyOnly = options?.classifyOnly ?? false;
-  const projectPages = await db
+  let projectPages = await db
     .select()
     .from(pages)
     .where(and(eq(pages.projectId, projectId), eq(pages.excluded, false)));
+
+  // ── Step 0: Exclude pagination and taxonomy archive pages ──
+  const EXCLUDABLE = /\/page\/\d+|\/(tags?|categor(?:y|ies))\//;
+  const excludeIds = projectPages.filter((p) => EXCLUDABLE.test(p.url)).map((p) => p.id);
+  if (excludeIds.length > 0) {
+    await db.update(pages).set({ excluded: true }).where(inArray(pages.id, excludeIds));
+    projectPages = projectPages.filter((p) => !EXCLUDABLE.test(p.url));
+  }
 
   const pageByUrl = new Map(projectPages.map((p) => [p.url, p]));
 
