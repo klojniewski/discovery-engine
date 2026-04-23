@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,68 @@ import { METRIC_CONFIG } from "@/services/crux";
 
 const NO_DATA_TOOLTIP =
   "Chrome's real-user data for this origin isn't large enough for a CWV verdict. Try a higher-traffic site.";
+
+function psiUrl(origin: string, strategy: "mobile" | "desktop"): string {
+  const params = new URLSearchParams({ url: origin, form_factor: strategy });
+  return `https://pagespeed.web.dev/analysis?${params}`;
+}
+
+function csvCell(v: string | number): string {
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function metricValue(
+  result: CwvFormFactorResult,
+  which: "lcp" | "inp" | "cls"
+): string {
+  if (result.status === "pass" || result.status === "fail") {
+    return String(result[which].p75);
+  }
+  if (result.status === "no_data" && result.partial) {
+    const m = result.partial[which];
+    return m ? String(m.p75) : "";
+  }
+  return "";
+}
+
+function exportCsv(rows: CwvRow[]) {
+  const header = [
+    "URL",
+    "Mobile status",
+    "Mobile LCP (ms)",
+    "Mobile INP (ms)",
+    "Mobile CLS",
+    "Desktop status",
+    "Desktop LCP (ms)",
+    "Desktop INP (ms)",
+    "Desktop CLS",
+  ];
+  const lines = rows.map((r) =>
+    [
+      r.origin ?? r.original,
+      r.mobile.status,
+      metricValue(r.mobile, "lcp"),
+      metricValue(r.mobile, "inp"),
+      metricValue(r.mobile, "cls"),
+      r.desktop.status,
+      metricValue(r.desktop, "lcp"),
+      metricValue(r.desktop, "inp"),
+      metricValue(r.desktop, "cls"),
+    ]
+      .map(csvCell)
+      .join(",")
+  );
+  const csv = [header.map(csvCell).join(","), ...lines].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cwv-test-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 type BadgeStyle = { variant?: "destructive" | "outline"; className?: string; label: string };
 
@@ -56,7 +118,15 @@ function MetricValue({
   );
 }
 
-function ResultCell({ result }: { result: CwvFormFactorResult }) {
+function ResultCell({
+  result,
+  origin,
+  strategy,
+}: {
+  result: CwvFormFactorResult;
+  origin: string | null;
+  strategy: "mobile" | "desktop";
+}) {
   const style = badgeStyle(result.status);
 
   const badge = (
@@ -67,16 +137,29 @@ function ResultCell({ result }: { result: CwvFormFactorResult }) {
 
   return (
     <div className="flex flex-col gap-1">
-      {result.status === "no_data" ? (
-        <Tooltip>
-          <TooltipTrigger className="cursor-help self-start">{badge}</TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs text-xs">
-            {NO_DATA_TOOLTIP}
-          </TooltipContent>
-        </Tooltip>
-      ) : (
-        badge
-      )}
+      <div className="flex items-center gap-2">
+        {result.status === "no_data" ? (
+          <Tooltip>
+            <TooltipTrigger className="cursor-help">{badge}</TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              {NO_DATA_TOOLTIP}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          badge
+        )}
+        {origin && (
+          <a
+            href={psiUrl(origin, strategy)}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open live ${strategy} analysis on PageSpeed Insights`}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
 
       {(result.status === "pass" || result.status === "fail") && (
         <div className="flex gap-2 text-[11px] tabular-nums text-muted-foreground">
@@ -165,6 +248,18 @@ export function CwvTestClient() {
       </div>
 
       {rows && rows.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {rows.length} {rows.length === 1 ? "result" : "results"}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => exportCsv(rows)}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
+      )}
+
+      {rows && rows.length > 0 && (
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -199,10 +294,10 @@ export function CwvTestClient() {
                     </div>
                   </td>
                   <td className="p-3">
-                    <ResultCell result={row.mobile} />
+                    <ResultCell result={row.mobile} origin={row.origin} strategy="mobile" />
                   </td>
                   <td className="p-3">
-                    <ResultCell result={row.desktop} />
+                    <ResultCell result={row.desktop} origin={row.origin} strategy="desktop" />
                   </td>
                 </tr>
               ))}
