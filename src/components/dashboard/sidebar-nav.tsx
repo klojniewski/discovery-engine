@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderPlus, Settings } from "lucide-react";
+import { LayoutDashboard, FolderPlus, Activity, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/projects", label: "Projects", icon: LayoutDashboard },
   { href: "/projects/new", label: "New Project", icon: FolderPlus },
+  { href: "/cwv-test", label: "CWV Test", icon: Activity },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
