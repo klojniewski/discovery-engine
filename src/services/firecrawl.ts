@@ -6,6 +6,11 @@ const firecrawl = new FirecrawlApp({
 
 const api = firecrawl.v1;
 
+// Cap on browsers Firecrawl uses for crawl jobs. Leaves headroom on the team's
+// concurrent-browser pool for ad-hoc screenshot and re-scrape calls that run
+// against the same API key while a crawl is in flight.
+const MAX_CONCURRENCY = Number(process.env.FIRECRAWL_MAX_CONCURRENCY ?? 5);
+
 interface CrawlOptions {
   url: string;
   limit?: number;
@@ -16,6 +21,7 @@ export async function startCrawl({ url, limit = 500, excludePaths }: CrawlOption
   const response = await api.asyncCrawlUrl(url, {
     limit,
     excludePaths: excludePaths?.length ? excludePaths : undefined,
+    maxConcurrency: MAX_CONCURRENCY,
     scrapeOptions: {
       formats: ["markdown", "html"],
     },
