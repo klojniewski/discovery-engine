@@ -43,12 +43,19 @@ export interface CruxHistoryData {
 
 export type CruxFormFactor = "PHONE" | "DESKTOP" | "ALL";
 
+export type CruxErrorCode = "no_data" | "transport";
+export interface CruxError {
+  error: string;
+  code: CruxErrorCode;
+}
+
 export async function fetchCruxOrigin(
   origin: string,
   formFactor?: CruxFormFactor
-): Promise<CruxOriginData | { error: string }> {
+): Promise<CruxOriginData | CruxError> {
   const apiKey = process.env.PAGESPEED_API_KEY;
-  if (!apiKey) return { error: "PAGESPEED_API_KEY not configured" };
+  if (!apiKey)
+    return { error: "PAGESPEED_API_KEY not configured", code: "transport" };
 
   try {
     const body: Record<string, unknown> = {
@@ -71,9 +78,12 @@ export async function fetchCruxOrigin(
       const msg =
         body?.error?.message || `CrUX API returned ${res.status}`;
       if (res.status === 404 || msg.includes("NOT_ENOUGH_DATA")) {
-        return { error: "Not enough traffic data for this domain in Chrome UX Report" };
+        return {
+          error: "Not enough traffic data for this domain in Chrome UX Report",
+          code: "no_data",
+        };
       }
-      return { error: msg };
+      return { error: msg, code: "transport" };
     }
 
     const data = await res.json();
@@ -105,6 +115,7 @@ export async function fetchCruxOrigin(
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "CrUX API request failed",
+      code: "transport",
     };
   }
 }
