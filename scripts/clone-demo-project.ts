@@ -30,10 +30,18 @@ import {
   reportSections,
 } from "@/db/schema";
 import {
-  substituteString,
-  substituteJson,
+  substituteString as _substituteString,
+  substituteJson as _substituteJson,
   rewriteUrlHost,
+  DEMO_PROJECT_SUBSTITUTIONS,
 } from "@/lib/demo-clone";
+
+// Bind the full substitution list once so every call-site here runs the
+// brand + author + podcast rules together.
+const substituteString = (s: string) =>
+  _substituteString(s, DEMO_PROJECT_SUBSTITUTIONS);
+const substituteJson = <T>(v: T) =>
+  _substituteJson(v, DEMO_PROJECT_SUBSTITUTIONS);
 
 interface Args {
   source: string;
