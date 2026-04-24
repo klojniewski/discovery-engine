@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 interface PageItem {
   id: string;
@@ -14,6 +14,35 @@ interface PageItem {
   contentTier: string | null;
   templateName: string | null;
   excluded: boolean | null;
+}
+
+function csvCell(v: string | number | boolean | null): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function exportSitemapCsv(pages: PageItem[], projectId: string) {
+  const header = ["URL", "Title", "Word Count", "Content Tier", "Template", "Excluded"];
+  const lines = pages.map((p) =>
+    [
+      p.url,
+      p.title,
+      p.wordCount,
+      p.contentTier,
+      p.templateName,
+      p.excluded ? "yes" : "no",
+    ].map(csvCell).join(",")
+  );
+  const csv = [header.map(csvCell).join(","), ...lines].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sitemap-${projectId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 interface TreemapNode {
@@ -577,30 +606,41 @@ export function SitemapTreemap({
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {drillStack.length > 1 && (
-          <Button variant="ghost" size="sm" onClick={drillUp}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        )}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          {drillStack.map((node, i) => (
-            <span key={node.fullPath} className="flex items-center gap-1">
-              {i > 0 && <span className="opacity-40">/</span>}
-              <button
-                className={`hover:underline ${i === drillStack.length - 1 ? "text-foreground font-medium" : ""}`}
-                onClick={() => updatePath(node.fullPath)}
-              >
-                {node.segment === "/" ? "/ (Root)" : node.segment}
-              </button>
-            </span>
-          ))}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {drillStack.length > 1 && (
+            <Button variant="ghost" size="sm" onClick={drillUp}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+          )}
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            {drillStack.map((node, i) => (
+              <span key={node.fullPath} className="flex items-center gap-1">
+                {i > 0 && <span className="opacity-40">/</span>}
+                <button
+                  className={`hover:underline ${i === drillStack.length - 1 ? "text-foreground font-medium" : ""}`}
+                  onClick={() => updatePath(node.fullPath)}
+                >
+                  {node.segment === "/" ? "/ (Root)" : node.segment}
+                </button>
+              </span>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground ml-2">
+            {currentNode.totalPages} pages ·{" "}
+            {currentNode.totalWords.toLocaleString()} words
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground ml-2">
-          {currentNode.totalPages} pages ·{" "}
-          {currentNode.totalWords.toLocaleString()} words
-        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => exportSitemapCsv(pages, projectId)}
+          title="Export full sitemap (all pages, not just the current drill-down)"
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Tier legend */}
