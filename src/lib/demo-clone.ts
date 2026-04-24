@@ -31,14 +31,43 @@ export const AUTHOR_ANONYMIZATION_SUBSTITUTIONS: Array<[RegExp, string]> = [
   [/Aalhad Kulkarni/g, "Aisha Patel"],
   [/Alex Merced/g, "Sam Chen"],
   [/Aniket Kulkarni/g, "Arjun Kapoor"],
+  [/Tomer Shiran/g, "Tom Rivers"],
+  [/Matthew Topol/g, "Marcus Thornton"],
+  [/Matt Topol/g, "Marcus Thornton"],
+  [/Isha Sharma/g, "Iris Sinclair"],
+  [/Mark Hoerth/g, "Martin Hale"],
+  [/Srini Srinivasan/g, "Sanjay Singh"],
+
   [/Aalhad-Kulkarni/g, "Aisha-Patel"],
   [/Alex-Merced/g, "Sam-Chen"],
   [/Aniket-Kulkarni/g, "Arjun-Kapoor"],
+  [/Tomer-Shiran/g, "Tom-Rivers"],
+  [/Matt-Topol/g, "Marcus-Thornton"],
+  [/Isha-Sharma/g, "Iris-Sinclair"],
+  [/Mark-Hoerth/g, "Martin-Hale"],
+  [/Srini-Srinivasan/g, "Sanjay-Singh"],
+
   [/aalhad-kulkarni/g, "aisha-patel"],
   [/alex-merced/g, "sam-chen"],
   [/aniket-kulkarni/g, "arjun-kapoor"],
-  // Standalone surnames — after all full-name forms are consumed
+  [/tomer-shiran/g, "tom-rivers"],
+  [/matthew-topol/g, "marcus-thornton"],
+  [/matt-topol/g, "marcus-thornton"],
+  [/isha-sharma/g, "iris-sinclair"],
+  [/mark-hoerth/g, "martin-hale"],
+  [/srini-srinivasan/g, "sanjay-singh"],
+
+  // Social handles — LinkedIn/Twitter usernames that expose identity
+  [/tshiran/g, "trivers"],
+
+  // Standalone surnames — after all full-name forms are consumed.
+  // "Sharma" and "Srinivasan" are common surnames with high collision
+  // risk in unrelated content, so they're deliberately omitted.
   [/Kulkarni/g, "Patel"],
+  [/Shiran/g, "Rivers"],
+  [/Topol/g, "Thornton"],
+  [/Hoerth/g, "Hale"],
+
   // Standalone given names
   [/Aalhad/g, "Aisha"],
   [/Aniket/g, "Arjun"],
