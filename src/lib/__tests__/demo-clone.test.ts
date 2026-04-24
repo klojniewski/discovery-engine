@@ -3,6 +3,7 @@ import {
   substituteString,
   substituteJson,
   rewriteUrlHost,
+  DEMO_PROJECT_SUBSTITUTIONS,
 } from "@/lib/demo-clone";
 
 describe("substituteString", () => {
@@ -53,6 +54,52 @@ describe("substituteJson", () => {
   it("handles null and undefined by returning as-is", () => {
     expect(substituteJson(null)).toBeNull();
     expect(substituteJson(undefined)).toBeUndefined();
+  });
+});
+
+describe("DEMO_PROJECT_SUBSTITUTIONS — author anonymization", () => {
+  const run = (s: string) => substituteString(s, DEMO_PROJECT_SUBSTITUTIONS);
+
+  it("rewrites Aalhad Kulkarni in prose", () => {
+    expect(run("Post by Aalhad Kulkarni")).toBe("Post by Aisha Patel");
+  });
+
+  it("rewrites the hyphenated form used in image filenames", () => {
+    expect(run("/uploads/Aalhad-Kulkarni-image-300x300.jpg")).toBe(
+      "/uploads/Aisha-Patel-image-300x300.jpg"
+    );
+  });
+
+  it("rewrites the lowercase slug used in URL paths", () => {
+    expect(run("https://meridian.ai/authors/aalhad-kulkarni")).toBe(
+      "https://meridian.ai/authors/aisha-patel"
+    );
+  });
+
+  it("rewrites Alex Merced but leaves standalone 'Merced' alone", () => {
+    expect(run("Alex Merced writes; Merced is also a city")).toBe(
+      "Sam Chen writes; Merced is also a city"
+    );
+  });
+
+  it("rewrites standalone Kulkarni if it escaped the full-name pattern", () => {
+    expect(run("Kulkarni said")).toBe("Patel said");
+  });
+});
+
+describe("DEMO_PROJECT_SUBSTITUTIONS — podcast rebrand", () => {
+  const run = (s: string) => substituteString(s, DEMO_PROJECT_SUBSTITUTIONS);
+
+  it("rewrites the podcast brand in prose", () => {
+    expect(run("Welcome to Gnarly Data Waves, episode 42")).toBe(
+      "Welcome to Podcast, episode 42"
+    );
+  });
+
+  it("rewrites the URL slug", () => {
+    expect(run("/resources/gnarly-data-waves/ep-42")).toBe(
+      "/resources/podcast/ep-42"
+    );
   });
 });
 
