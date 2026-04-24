@@ -95,6 +95,16 @@ export const GNARLY_TO_PODCAST_SUBSTITUTIONS: Array<[RegExp, string]> = [
 ];
 
 /**
+ * "Subsurface" is Dremio's real event brand; rewrite the URL section
+ * prefix to "/integrations" so the demo doesn't expose the event brand
+ * in visible URLs. Kept narrow — matches URL-path occurrences only
+ * (leading slash) so body-prose uses of "subsurface" aren't affected.
+ */
+export const SUBSURFACE_TO_INTEGRATIONS_SUBSTITUTIONS: Array<[RegExp, string]> = [
+  [/\/subsurface/g, "/integrations"],
+];
+
+/**
  * Rebrand references to NetApp (a real storage vendor frequently cited in
  * the source content and shown as a partner page) to a fictional "Vercell"
  * so the demo doesn't implicitly associate the Meridian brand with a
@@ -119,6 +129,7 @@ export const DEMO_PROJECT_SUBSTITUTIONS: Array<[RegExp, string]> = [
   ...AUTHOR_ANONYMIZATION_SUBSTITUTIONS,
   ...GNARLY_TO_PODCAST_SUBSTITUTIONS,
   ...NETAPP_TO_VERCELL_SUBSTITUTIONS,
+  ...SUBSURFACE_TO_INTEGRATIONS_SUBSTITUTIONS,
 ];
 
 export function substituteString(
