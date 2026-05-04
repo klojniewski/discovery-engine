@@ -19,6 +19,10 @@
 - [x] Inline tier editing on SEO table + representative page picker
 - [x] Re-run buttons with live progress (scoring 23/1200)
 - [x] Project form: optional email, 1k default, URL-to-name prefill
+- [x] CWV Test tab — bulk Core Web Vitals check, paste URL list, mobile/desktop pass/fail with per-cell PSI deep links and CSV export
+- [x] Visual Sitemap CSV export and Pages-tab CSV export (shared `ExportPagesButton`, used by Crawl tab too — single source of truth)
+- [x] Meridian demo project — `scripts/clone-demo-project.ts` clones any project with brand/author/podcast/partner anonymization for sales showcases
+- [x] Firecrawl concurrency cap via `FIRECRAWL_MAX_CONCURRENCY` (default 5, matches hobby plan) so crawls don't exhaust the team browser pool
 
 ## Near-term (Weeks 1-2)
 
