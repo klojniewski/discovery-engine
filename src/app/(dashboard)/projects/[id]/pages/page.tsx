@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { PageTreeView } from "@/components/pages/page-tree-view";
 import { PagesTable } from "@/components/pages/pages-table";
+import { ExportPagesButton } from "@/components/pages/export-pages-button";
 
 export default async function PagesListPage({
   params,
@@ -71,7 +72,9 @@ export default async function PagesListPage({
             {total} pages for <strong>{project.clientName}</strong>
           </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <ExportPagesButton projectId={id} projectName={project.clientName} />
+          <div className="flex items-center gap-1">
           <Link
             href={buildViewUrl("list")}
             className={`inline-flex items-center justify-center rounded-md border h-8 w-8 ${
@@ -97,6 +100,7 @@ export default async function PagesListPage({
           >
             <Map className="h-4 w-4" />
           </Link>
+          </div>
         </div>
       </div>
 
